@@ -1,21 +1,106 @@
 const { chromium } = require('playwright');
 const logger = require('../utils/logger');
+const { supabase } = require('../db/supabase');
+const crypto = require('crypto');
 const scraperStatusHandler = require('../websocket/scraperStatusHandler');
-const fs = require('fs');
-const { puppeteerScraper } = require('./puppeteerScraper');
+const alertingService = require('../services/alertingService');
+const securityService = require('../services/securityService');
+
+// Field type detection patterns
+const fieldPatterns = {
+  email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+  phone: /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/,
+  price: /^\$?\d+(?:[.,]\d{2})?$/,
+  date: /^\d{4}-\d{2}-\d{2}|\d{2}[-/]\d{2}[-/]\d{4}|\w+ \d{1,2},? \d{4}/,
+  url: /^(https?:\/\/)?[\w-]+(\.[\w-]+)+[/#?]?.*$/,
+  address: /(street|avenue|road|boulevard|lane|drive|way|court|circle|plaza|square)/i,
+  socialMedia: /(facebook|twitter|linkedin|instagram|youtube)\.com/i
+};
 
 /**
- * Playwright scraper: supports clicking dropdowns and extracting any content via multiple selectors.
- * @param {string} url - The starting URL.
- * @param {Object} selectors - Object containing main, child, pagination, and dropdownClick selectors
- * @param {string} scraperId - The ID of the scraper for status updates
- * @returns {Promise<object[]>}
+ * Detect field type based on content
+ * @param {string} value - The field value to analyze
+ * @returns {string} The detected field type
  */
-async function playwrightScraper(url, selectors, scraperId) {
+function detectFieldType(value) {
+  if (!value || typeof value !== 'string') return 'text';
+  
+  for (const [type, pattern] of Object.entries(fieldPatterns)) {
+    if (pattern.test(value.trim())) {
+      return type;
+    }
+  }
+  return 'text';
+}
+
+/**
+ * Generate a DOM hash for verification
+ * @param {string} html - The HTML content to hash
+ * @returns {string} The SHA-256 hash of the cleaned HTML
+ */
+function generateDOMHash(html) {
+  const cleanHtml = html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return crypto
+    .createHash('sha256')
+    .update(cleanHtml)
+    .digest('hex');
+}
+
+/**
+ * Try multiple selectors until one works
+ * @param {Object} page - Playwright page object
+ * @param {Array} selectorList - Array of selector objects
+ * @returns {Promise<{element: ElementHandle, selectorUsed: Object}>}
+ */
+async function trySelectors(page, selectorList) {
+  for (const selector of selectorList) {
+    try {
+      const element = await page.$(selector.value);
+      if (element) {
+        return { element, selectorUsed: selector };
+      }
+    } catch (error) {
+      logger.debug(`Selector ${selector.value} failed: ${error.message}`);
+    }
+  }
+  return { element: null, selectorUsed: null };
+}
+
+/**
+ * Enhanced Playwright scraper with DOM verification, fallback logic, and improved error handling
+ */
+async function playwrightScraper(url, config, scraperId) {
+  // Validate and sanitize configuration
+  config = securityService.validateScraperConfig(config);
+  url = securityService.sanitizeInput(url);
+
+  const metrics = {
+    startTime: Date.now(),
+    totalRequests: 0,
+    errorCount: 0,
+    404Count: 0,
+    requestsPerSecond: 0,
+    errorRate: 0
+  };
+
+  const startTime = Date.now();
   const isProduction = process.env.NODE_ENV === 'production';
   
   logger.info(`Starting playwrightScraper for URL: ${url}`);
-  logger.info(`Selectors:`, JSON.stringify(selectors, null, 2));
+
+  // Get stored DOM hash for verification
+  const { data: scraper } = await supabase
+    .from('scrapers')
+    .select('config')
+    .eq('id', scraperId)
+    .single();
+
+  const storedHash = scraper?.config?.domHash;
   
   const launchOptions = {
     headless: isProduction ? true : false, // Keep headless true for prod, false for dev
@@ -55,6 +140,9 @@ async function playwrightScraper(url, selectors, scraperId) {
   let results = [];
   let pageNum = 1;
   let hasNextPage = true;
+  let retryCount = 0;
+  let errorCount = 0;
+  let pageLoadTimes = [];
 
   try {
     const browserType = chromium; // Or specify based on config if needed
@@ -81,8 +169,29 @@ async function playwrightScraper(url, selectors, scraperId) {
     page.setDefaultTimeout(navigationTimeout); // For other actions like clicks, waitForSelector
 
     let currentUrl = url;
+    let hashMismatchReported = false;
 
-    while (hasNextPage && (pageNum <= (parseInt(process.env.MAX_PAGES_PER_SCRAPE, 10) || 50))) {
+    while (hasNextPage && (pageNum <= (config.pagination?.maxPages || parseInt(process.env.MAX_PAGES_PER_SCRAPE, 10) || 50))) {
+      metrics.totalRequests++;
+      const pageStartTime = Date.now();
+      
+      // Update metrics
+      const duration = (Date.now() - metrics.startTime) / 1000; // in seconds
+      metrics.requestsPerSecond = metrics.totalRequests / duration;
+      metrics.errorRate = metrics.errorCount / metrics.totalRequests;
+
+      // Check for suspicious activity
+      if (securityService.detectSuspiciousActivity(metrics)) {
+        await alertingService.createAlert({
+          scraperId,
+          severity: 'critical',
+          category: 'security',
+          message: 'Suspicious scraping activity detected',
+          data: metrics
+        });
+        throw new Error('Scraping terminated due to suspicious activity');
+      }
+
       logger.info(`Scraping page ${pageNum}: ${currentUrl}`);
       scraperStatusHandler.updateStatus(scraperId, {
         status: 'running', currentPage: pageNum, totalItems: results.length, type: 'info', message: `Navigating to page ${pageNum}: ${currentUrl.substring(0, 100)}...`
@@ -100,60 +209,127 @@ async function playwrightScraper(url, selectors, scraperId) {
             status: 'running', currentPage: pageNum, totalItems: results.length, type: 'info', message: `Page ${pageNum} loaded. Searching for content...`
         });
       } catch (navError) {
-        logger.error(`Playwright page.goto(\'${currentUrl}\') failed:`, navError);
-        scraperStatusHandler.updateStatus(scraperId, {
-          status: 'error', currentPage: pageNum, totalItems: results.length, type: 'error', message: `Failed to navigate to ${currentUrl.substring(0,100)}: ${navError.message}`
-        });
-        throw navError; // Propagate error to main catch
+        metrics.errorCount++;
+        const shouldRetry = await handleError(navError, scraperId, pageNum, results, browser, retryCount);
+        if (shouldRetry) {
+          retryCount++;
+          continue;
+        }
+        throw navError;
       }
 
-      // Click all dropdowns/arrows if a selector is provided
-      if (selectors.dropdownClick) {
-        const dropdowns = await page.$$(selectors.dropdownClick);
-        logger.info(`Found ${dropdowns.length} dropdown elements to click`);
-        scraperStatusHandler.updateStatus(scraperId, {
-          status: 'running', currentPage: pageNum, totalItems: results.length, type: 'info', message: `Found ${dropdowns.length} dropdown elements to expand`
-        });
+      // Verify DOM structure if hash exists
+      if (storedHash && !hashMismatchReported) {
+        const currentDom = await page.evaluate(() => document.documentElement.outerHTML);
+        const currentHash = generateDOMHash(currentDom);
 
-        for (const dropdown of dropdowns) {
-          try {
-            await dropdown.click();
-            await page.waitForTimeout(200);
-          } catch (e) {
-            logger.warn(`Failed to click dropdown: ${e.message}`);
-            scraperStatusHandler.updateStatus(scraperId, {
-              status: 'running', currentPage: pageNum, totalItems: results.length, type: 'warning', message: `Failed to click a dropdown element: ${e.message}`
-            });
+        if (currentHash !== storedHash) {
+          logger.warn(`DOM structure changed for scraper ${scraperId}. Hash mismatch.`);
+          hashMismatchReported = true;
+          
+          // Update scraper status with warning
+          await supabase
+            .from('scrapers')
+            .update({
+              status: 'warning',
+              config: {
+                ...scraper.config,
+                lastHashMismatch: new Date().toISOString(),
+                currentHash: currentHash
+              }
+            })
+            .eq('id', scraperId);
+
+          scraperStatusHandler.updateStatus(scraperId, {
+            status: 'warning',
+            currentPage: pageNum,
+            totalItems: results.length,
+            type: 'warning',
+            message: 'Website structure may have changed. Using fallback selectors.'
+          });
+        }
+      }
+
+      // Handle expandable elements with fallback
+      if (config.expandableElements) {
+        for (const expandConfig of config.expandableElements) {
+          const { element } = await trySelectors(page, expandConfig.selectors);
+          if (element) {
+            try {
+              await element.click();
+              await page.waitForTimeout(expandConfig.waitAfterClick || 200);
+            } catch (e) {
+              logger.warn(`Failed to click expandable element: ${e.message}`);
+            }
           }
         }
       }
 
-      // Extract data from all matching main containers
+      // Extract data with enhanced selector support and fallback
       try {
         const pageResults = await page.evaluate((config) => {
-          const mainContainers = document.querySelectorAll(config.main);
-          const results = [];
+          function extractFieldValue(container, fieldConfig) {
+            // Try each selector in order until one works
+            for (const selector of fieldConfig.selectors) {
+              try {
+                const element = container.querySelector(selector.value);
+                if (element) {
+                  const rawValue = element.innerText.trim();
+                  const href = element.href;
+                  
+                  // Auto-detect field type if not specified
+                  const fieldType = fieldConfig.type || detectFieldType(rawValue);
+                  
+                  switch(fieldType) {
+                    case 'email':
+                      return href?.startsWith('mailto:') ? 
+                        href.replace('mailto:', '') : rawValue;
+                    case 'url':
+                      return href || rawValue;
+                    case 'phone':
+                      return href?.startsWith('tel:') ? 
+                        href.replace('tel:', '') : rawValue;
+                    case 'price':
+                      return rawValue.replace(/[^0-9.]/g, '');
+                    case 'date':
+                      try {
+                        return new Date(rawValue).toISOString();
+                      } catch {
+                        return rawValue;
+                      }
+                    default:
+                      return rawValue;
+                  }
+                }
+              } catch (error) {
+                console.warn(`Selector ${selector.value} failed:`, error);
+                continue;
+              }
+            }
+            return null;
+          }
 
-          mainContainers.forEach(container => {
+          const results = [];
+          let mainElements = [];
+
+          // Try each main selector until we find matching elements
+          for (const mainSelector of config.main.selectors) {
+            mainElements = document.querySelectorAll(mainSelector.value);
+            if (mainElements.length > 0) break;
+          }
+
+          mainElements.forEach(container => {
             const data = {
               text: container.innerText,
               metadata: {}
             };
 
-            // Extract data using child selectors
-            if (config.child) {
-              Object.entries(config.child).forEach(([key, selector]) => {
-                const element = container.querySelector(selector);
-                if (element) {
-                  if (key === 'email' && element.href?.startsWith('mailto:')) {
-                    data.metadata[key] = element.href.replace('mailto:', '');
-                  } else if (key === 'website' && element.href) {
-                    data.metadata[key] = element.href;
-                  } else if (key === 'phone' && element.href?.startsWith('tel:')) {
-                    data.metadata[key] = element.href.replace('tel:', '');
-                  } else {
-                    data.metadata[key] = element.innerText.trim();
-                  }
+            // Extract data using enhanced field selectors
+            if (config.fields) {
+              Object.entries(config.fields).forEach(([key, fieldConfig]) => {
+                const value = extractFieldValue(container, fieldConfig);
+                if (value) {
+                  data.metadata[key] = value;
                 }
               });
             }
@@ -162,7 +338,7 @@ async function playwrightScraper(url, selectors, scraperId) {
           });
 
           return results;
-        }, selectors);
+        }, config);
 
         logger.info(`Found ${pageResults.length} results on page ${pageNum}`);
         results = results.concat(pageResults);
@@ -170,34 +346,96 @@ async function playwrightScraper(url, selectors, scraperId) {
         scraperStatusHandler.updateStatus(scraperId, {
           status: 'running', currentPage: pageNum, totalItems: results.length, type: 'success', message: `Found ${pageResults.length} items on page ${pageNum}. Total: ${results.length}`
         });
-      } catch (error) {
-        logger.error(`Error extracting data from page ${pageNum}:`, error);
-        scraperStatusHandler.updateStatus(scraperId, {
-          status: 'error', currentPage: pageNum, totalItems: results.length, type: 'error', message: `Error extracting data: ${error.message}`
-        });
-        throw error; // Propagate error to main catch
+
+        // Monitor data quality after each page
+        await alertingService.monitorDataQuality(scraperId, pageResults, config);
+      } catch (extractError) {
+        metrics.errorCount++;
+        const shouldRetry = await handleError(extractError, scraperId, pageNum, results, browser, retryCount);
+        if (shouldRetry) {
+          retryCount++;
+          continue;
+        }
+        throw extractError;
       }
 
-      // Handle pagination if selector is provided
-      if (!selectors.pagination) {
-        logger.info('No pagination selector provided, finishing scrape');
-        hasNextPage = false;
-        break;
-      }
+      // Monitor page load time
+      pageLoadTimes.push(Date.now() - pageStartTime);
+      const avgResponseTime = pageLoadTimes.reduce((a, b) => a + b, 0) / pageLoadTimes.length;
+      
+      // Monitor performance
+      await alertingService.monitorPerformance(scraperId, {
+        errorRate: errorCount / pageNum,
+        averageResponseTime: avgResponseTime,
+        memoryUsage: process.memoryUsage().heapUsed / process.memoryUsage().heapTotal
+      });
 
-      try {
-        const nextPageLink = await page.$(selectors.pagination);
-        if (nextPageLink) {
-          currentUrl = await page.evaluate(el => el.href, nextPageLink);
-          logger.info(`Found next page link: ${currentUrl}`);
-          pageNum++;
-        } else {
-          logger.info('No next page link found.');
+      // Enhanced pagination handling with fallback
+      if (config.pagination) {
+        try {
+          let nextPageElement = null;
+          let nextUrl = null;
+
+          // Try each pagination type in order
+          const paginationTypes = ['nextButton', 'numberLinks', 'loadMore'];
+          
+          for (const type of paginationTypes) {
+            if (config.pagination.type === type) {
+              switch(type) {
+                case 'nextButton': {
+                  const { element } = await trySelectors(page, config.pagination.selectors);
+                  if (element && await element.isEnabled()) {
+                    nextPageElement = element;
+                  }
+                  break;
+                }
+                case 'numberLinks': {
+                  // Find the active page number and try to click the next one
+                  const currentPageNum = pageNum;
+                  const allPageLinks = await page.$$(config.pagination.selectors[0].value);
+                  for (const link of allPageLinks) {
+                    const text = await link.textContent();
+                    if (parseInt(text) === currentPageNum + 1) {
+                      nextPageElement = link;
+                      break;
+                    }
+                  }
+                  break;
+                }
+                case 'loadMore': {
+                  const { element: loadMoreBtn } = await trySelectors(page, config.pagination.selectors);
+                  if (loadMoreBtn && await loadMoreBtn.isVisible()) {
+                    await loadMoreBtn.click();
+                    await page.waitForTimeout(config.pagination.waitAfterClick || 1000);
+                    // Don't update URL for "Load More" pagination
+                    continue;
+                  }
+                  break;
+                }
+              }
+              
+              if (nextPageElement) break;
+            }
+          }
+
+          if (nextPageElement) {
+            if (config.pagination.type !== 'loadMore') {
+              nextUrl = await page.evaluate(el => el.href, nextPageElement);
+              if (nextUrl) {
+                currentUrl = nextUrl;
+                pageNum++;
+                continue;
+              }
+            }
+          }
+
+          // If we reach here, no more pages
+          hasNextPage = false;
+
+        } catch (paginationError) {
+          logger.error('Pagination error:', paginationError);
           hasNextPage = false;
         }
-      } catch (paginationError) {
-        logger.error('Error finding or evaluating pagination selector:', paginationError);
-        hasNextPage = false;
       }
     }
 
@@ -205,28 +443,28 @@ async function playwrightScraper(url, selectors, scraperId) {
     scraperStatusHandler.updateStatus(scraperId, {
       status: 'completed', currentPage: pageNum -1, totalItems: results.length, type: 'success', message: 'Scraping process finished by Playwright.'
     });
+
+    // Final performance check
+    const totalTime = Date.now() - startTime;
+    if (totalTime > (config.expectedDuration || 300000)) { // 5 minutes default
+      await alertingService.createAlert({
+        scraperId,
+        severity: 'warning',
+        category: 'performance',
+        message: `Scraping took longer than expected: ${Math.round(totalTime / 1000)}s`,
+        data: { actualDuration: totalTime, expectedDuration: config.expectedDuration }
+      });
+    }
+
     return results;
 
   } catch (error) {
-    logger.error(`Playwright scraper failed: ${error.message}. Stack: ${error.stack}`);
-    // Try to close browser before falling back
-    if (browser) {
-        try {
-            logger.info('Closing Playwright browser due to error before fallback...');
-            await browser.close();
-            logger.info('Playwright browser closed.');
-        } catch (closeError) {
-            logger.error('Error closing Playwright browser during fallback prep:', closeError);
-        }
+    metrics.errorCount++;
+    const shouldRetry = await handleError(error, scraperId, pageNum, results, browser, retryCount);
+    if (shouldRetry && !securityService.detectSuspiciousActivity(metrics)) {
+      return playwrightScraper(url, config, scraperId);
     }
-    scraperStatusHandler.updateStatus(scraperId, {
-      status: 'running', // Still 'running' because we're trying a fallback
-      currentPage: pageNum, 
-      totalItems: results.length, 
-      type: 'warning',
-      message: `Playwright failed: ${error.message.substring(0,100)}. Switching to Puppeteer fallback.`
-    });
-    return puppeteerScraper(url, selectors, scraperId); // Fallback
+    return puppeteerScraper(url, config, scraperId);
   } finally {
     if (browser && browser.isConnected()) {
       logger.info('Finalizing Playwright: closing browser...');
@@ -242,6 +480,110 @@ async function playwrightScraper(url, selectors, scraperId) {
   }
 }
 
+/**
+ * Handle errors with retries and fallback mechanisms
+ * @param {Error} error - The error object
+ * @param {string} scraperId - The ID of the scraper
+ * @param {number} pageNum - The current page number
+ * @param {Array} results - The results array
+ * @param {Object} browser - The browser instance
+ * @param {number} retryCount - The current retry count
+ * @returns {Promise<boolean>} - Whether to retry the operation
+ */
+async function handleError(error, scraperId, pageNum, results, browser, retryCount = 0) {
+  const errorType = categorizeError(error);
+  
+  // Create alert for the error
+  await alertingService.createAlert({
+    scraperId,
+    severity: errorType === 'BLOCKED' ? 'critical' : 'error',
+    category: 'scraper_error',
+    message: `Scraping error: ${error.message}`,
+    data: {
+      errorType,
+      pageNumber: pageNum,
+      retryCount,
+      itemsCollected: results.length
+    }
+  });
+
+  logger.error(`Scraper ${scraperId} error (attempt ${retryCount + 1}): ${error.message}`);
+
+  // Update error statistics
+  await supabase
+    .from('scraping_jobs')
+    .update({
+      error_count: retryCount + 1,
+      last_error: error.message,
+      error_type: errorType
+    })
+    .eq('scraper_id', scraperId);
+
+  // Emit error for real-time monitoring
+  webSocketManager.emitError(scraperId, {
+    type: errorType,
+    message: error.message,
+    pageNumber: pageNum,
+    itemsCollected: results.length
+  });
+
+  // Handle specific error types
+  switch (errorType) {
+    case 'NAVIGATION':
+      if (retryCount < maxRetries) {
+        logger.info(`Retrying navigation after error (attempt ${retryCount + 1})`);
+        await new Promise(resolve => setTimeout(resolve, 5000 * (retryCount + 1)));
+        return true; // Indicate retry
+      }
+      break;
+
+    case 'SELECTOR':
+      // Try fallback selectors if available
+      return false; // Don't retry, use fallback mechanism
+
+    case 'BLOCKED':
+      // Switch proxy if available
+      const proxyService = require('../services/proxyService');
+      const nextProxy = await proxyService.getNextProxy(scraperId);
+      if (nextProxy) {
+        logger.info('Switching to next proxy after being blocked');
+        return true; // Indicate retry with new proxy
+      }
+      break;
+
+    case 'MEMORY':
+      if (browser) {
+        try {
+          await browser.close();
+          logger.info('Browser closed due to memory error');
+        } catch (closeError) {
+          logger.error('Error closing browser:', closeError);
+        }
+      }
+      if (retryCount < maxRetries) {
+        return true; // Indicate retry with fresh browser
+      }
+      break;
+  }
+
+  return false; // Don't retry if we reach here
+}
+
+/**
+ * Categorize errors into predefined types
+ * @param {Error} error - The error object
+ * @returns {string} - The error type
+ */
+function categorizeError(error) {
+  const message = error.message.toLowerCase();
+  if (message.includes('timeout') || message.includes('navigation')) return 'NAVIGATION';
+  if (message.includes('selector') || message.includes('element not found')) return 'SELECTOR';
+  if (message.includes('blocked') || message.includes('403') || message.includes('captcha')) return 'BLOCKED';
+  if (message.includes('memory') || message.includes('crashed')) return 'MEMORY';
+  return 'UNKNOWN';
+}
+
 module.exports = {
-  playwrightScraper
+  playwrightScraper,
+  generateDOMHash
 };

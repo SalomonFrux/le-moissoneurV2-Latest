@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { Dashboard } from '@/components/dashboard/Dashboard';
+import { inactivityService } from '@/services/inactivityService';
 import { LoginPage } from '@/pages/LoginPage';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -12,32 +13,35 @@ import { ParametersPage } from '@/components/settings/ParametersPage';
 import { authService } from '@/services/authService';
 
 function App() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: 1,
+        refetchOnWindowFocus: false,
+      },
+    },
+  });
+
   useEffect(() => {
     // Initialize authentication state
     authService.initializeAuth();
+    
+    // Start inactivity timer if user is authenticated
+    if (authService.isAuthenticated()) {
+      inactivityService.startTimer();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      inactivityService.stopTimer();
+    };
   }, []);
 
   return (
-    <Router>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/login" element={<LoginPage />} />
-        
-        {/* Protected routes */}
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <Dashboard />
-            </DashboardLayout>
-          </ProtectedRoute>
-        } />
-        <Route path="/scrapers" element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <ScrapersPage />
-            </DashboardLayout>
-          </ProtectedRoute>
-        } />
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+      <Toaster />
+    </QueryClientProvider>
         <Route path="/data" element={
           <ProtectedRoute>
             <DashboardLayout>

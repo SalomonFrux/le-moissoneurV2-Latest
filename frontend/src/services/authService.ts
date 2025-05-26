@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { supabase } from '@/lib/supabase';
+import { inactivityService } from './inactivityService';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -39,16 +41,28 @@ export const authService = {
       
       // Set default Authorization header for all future requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      // Start inactivity monitoring when user logs in
+      inactivityService.startTimer();
     } catch (error) {
       console.error('Login error:', error);
       throw error;
     }
   },
 
-  logout(): void {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    delete axios.defaults.headers.common['Authorization'];
+  async logout(): Promise<void> {
+    try {
+      await supabase.auth.signOut();
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      delete axios.defaults.headers.common['Authorization'];
+
+      // Stop inactivity monitoring on logout
+      inactivityService.stopTimer();
+    } catch (error) {
+      console.error('Logout error:', error);
+      throw error;
+    }
   },
 
   getToken(): string | null {
@@ -71,12 +85,31 @@ export const authService = {
     return !!token && this.isValidToken(token);
   },
 
-  initializeAuth(): void {
-    const token = this.getToken();
-    if (token && this.isValidToken(token)) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    } else {
-      this.logout();
+  async initializeAuth(): Promise<void> {
+    const { data: { session } } = await supabase.auth.getSession();
+    this.token = session?.access_token || null;
+    
+    if (this.token) {
+      localStorage.setItem('token', this.token);
+      // Start inactivity monitoring if user is already authenticated
+      inactivityService.startTimer();
+    }
+  },
+
+  async refreshSession(): Promise<void> {
+    try {
+      const { data: { session }, error } = await supabase.auth.refreshSession();
+      if (error) throw error;
+      
+      this.token = session?.access_token || null;
+      if (this.token) {
+        localStorage.setItem('token', this.token);
+        // Reset inactivity timer when session is refreshed
+        inactivityService.startTimer();
+      }
+    } catch (error) {
+      console.error('Session refresh error:', error);
+      throw error;
     }
   },
 
@@ -107,4 +140,4 @@ export const authService = {
       return false;
     }
   }
-}; 
+};

@@ -1,7 +1,6 @@
 const logger = require('../utils/logger');
 const { supabase } = require('../db/supabase');
-const { executeScraper } = require('../services/scraperService');
-const scraperStatusHandler = require('../websocket/scraperStatusHandler');
+const { scraperQueue } = require('../config/queue');
 
 /**
  * Run a scraper by ID
@@ -25,52 +24,32 @@ async function runScraper(req, res, next) {
       });
     }
     
-    // Update scraper status to 'running'
+    // Add job to queue
+    const job = await scraperQueue.add('scrape', {
+      scraperId: id,
+      url: scraper.source,
+      selectors: scraper.selectors
+    }, {
+      jobId: `scraper-${id}-${Date.now()}`,
+      attempts: 3
+    });
+    
+    // Update scraper status to queued
     await supabase
       .from('scrapers')
-      .update({ status: 'running' })
+      .update({ 
+        status: 'queued',
+        job_id: job.id
+      })
       .eq('id', id);
     
-    // Start scraper execution asynchronously (don't await)
-    executeScraper(scraper)
-      .then(() => {
-        logger.info(`Scraper ${id} completed successfully`);
-        scraperStatusHandler.updateStatus(id, {
-          status: 'completed',
-          currentPage: 0,
-          totalItems: 0,
-          type: 'success',
-          message: 'Scraping completed successfully'
-        });
-      })
-      .catch((err) => {
-        logger.error(`Error running scraper ${id}: ${err.message}`);
-        // Update status to error on failure
-        supabase
-          .from('scrapers')
-          .update({ 
-            status: 'error',
-            last_run: new Date().toISOString()
-          })
-          .eq('id', id);
-
-        scraperStatusHandler.updateStatus(id, {
-          status: 'error',
-          currentPage: 0,
-          totalItems: 0,
-          type: 'error',
-          message: `Scraping failed: ${err.message}`,
-          error: err.message
-        });
-      });
-    
-    // Immediately respond that the scraper has started
     return res.status(202).json({
-      message: `Scraper ${id} has been started`,
+      message: `Scraper ${id} has been queued`,
       scraper: {
         id: scraper.id,
         name: scraper.name,
-        status: 'running'
+        status: 'queued',
+        jobId: job.id
       }
     });
   } catch (err) {
@@ -98,6 +77,21 @@ async function getScraperStatus(req, res, next) {
         error: `Scraper with ID ${id} not found`,
         details: error.message 
       });
+    }
+
+    // If there's a job_id, get the job status from the queue
+    if (scraper.job_id) {
+      const job = await scraperQueue.getJob(scraper.job_id);
+      if (job) {
+        const jobState = await job.getState();
+        scraper.job_status = jobState;
+        
+        // Get job progress if available
+        const progress = await job.progress();
+        if (progress) {
+          scraper.progress = progress;
+        }
+      }
     }
     
     return res.status(200).json(scraper);
