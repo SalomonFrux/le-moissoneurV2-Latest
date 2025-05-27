@@ -17,7 +17,7 @@ import { Plus, Code, Save, RefreshCw, Search, Filter, MoreVertical, Globe, Mail,
 import { ScraperCard } from './ScraperCard';
 import { toast } from 'sonner';
 import { getAllScrapers, runScraper, getScraperStatus, createScraper, deleteScraper, updateScraper } from '@/services/scraperService';
-import { dataService, type Scraper, type ScrapedEntry, type PaginatedResponse, type FetchDataParams } from '@/services/dataService';
+import { dataService, type Scraper, type ScrapedEntry, type PaginatedResponse, type FetchDataParams, type SelectorObject, type SelectorType } from '@/services/dataService';
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import { scraperStatusService } from '@/services/scraperStatusService';
 import { ScraperStatus } from '@/components/scraper/types';
 import { ScraperProgress } from '@/components/scraper/ScraperProgress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 const countries = [
   "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia", "Cameroon", "Canada", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo, Democratic Republic of the", "Congo, Republic of the", "Costa Rica", "Cote d'Ivoire", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Korea, North", "Korea, South", "Kosovo", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Macedonia", "Norway", "Oman", "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
@@ -38,10 +39,10 @@ const countries = [
 interface ScraperConfig {
   name: string;
   source: string;
-  selector: string;
-  paginationSelector: string;
-  dropdownClickSelector?: string;
-  childSelectors?: string;
+  mainSelectors: SelectorObject[];
+  paginationSelectors: SelectorObject[];
+  dropdownClickSelectors: SelectorObject[];
+  childSelectors: Record<string, SelectorObject[]>;
   engine: 'playwright' | 'puppeteer';
   frequency: 'daily' | 'weekly' | 'monthly' | 'manual';
   country?: string;
@@ -86,10 +87,17 @@ export function ScrapersPage() {
   const [formData, setFormData] = useState<ScraperConfig>({
     name: '',
     source: '',
-    selector: '',
-    paginationSelector: '',
-    dropdownClickSelector: '',
-    childSelectors: '',
+    mainSelectors: [{ type: 'css', value: '' }],
+    paginationSelectors: [],
+    dropdownClickSelectors: [],
+    childSelectors: {
+      name: [{ type: 'css', value: '' }],
+      phone: [],
+      email: [],
+      website: [],
+      address: [],
+      sector: [],
+    },
     engine: 'playwright',
     frequency: 'manual',
     country: '',
@@ -122,6 +130,16 @@ export function ScrapersPage() {
   const [scrapedDataResponse, setScrapedDataResponse] = useState<{ total: number; page: number; limit: number } | null>(null);
   const [scraperStatus, setScraperStatus] = useState<{ [key: string]: ScraperStatus }>({});
   const [activeScraperStatus, setActiveScraperStatus] = useState<{ status: ScraperStatus; name: string } | null>(null);
+  // Selector testing modal state
+  const [testModal, setTestModal] = useState<{
+    open: boolean;
+    selectorType: string;
+    selectorValue: string;
+    field: string;
+    idx: number;
+  }>({ open: false, selectorType: '', selectorValue: '', field: '', idx: -1 });
+  const [testInput, setTestInput] = useState('');
+  const [testResult, setTestResult] = useState<string | null>(null);
 
   useEffect(() => {
     const activeScrapers = Object.entries(scraperStatus).find(([_, status]) => status.status === 'running');
@@ -161,6 +179,76 @@ export function ScrapersPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper to add a selector to a field
+  const addSelector = (field: keyof ScraperConfig, type: SelectorType = 'css') => {
+    setFormData(prev => {
+      if (field === 'mainSelectors' || field === 'paginationSelectors' || field === 'dropdownClickSelectors') {
+        return {
+          ...prev,
+          [field]: [...(prev[field] as SelectorObject[]), { type, value: '' }]
+        };
+      }
+      return prev;
+    });
+  };
+
+  // Helper to remove a selector from a field
+  const removeSelector = (field: keyof ScraperConfig, idx: number) => {
+    setFormData(prev => {
+      if (field === 'mainSelectors' || field === 'paginationSelectors' || field === 'dropdownClickSelectors') {
+        return {
+          ...prev,
+          [field]: (prev[field] as SelectorObject[]).filter((_, i) => i !== idx)
+        };
+      }
+      return prev;
+    });
+  };
+
+  // Helper to update a selector value/type
+  const updateSelector = (field: keyof ScraperConfig, idx: number, key: keyof SelectorObject, value: string) => {
+    setFormData(prev => {
+      if (field === 'mainSelectors' || field === 'paginationSelectors' || field === 'dropdownClickSelectors') {
+        const updated = [...(prev[field] as SelectorObject[])];
+        updated[idx] = { ...updated[idx], [key]: value };
+        return {
+          ...prev,
+          [field]: updated
+        };
+      }
+      return prev;
+    });
+  };
+
+  // Child selectors helpers
+  const addChildSelector = (childField: string, type: SelectorType = 'css') => {
+    setFormData(prev => ({
+      ...prev,
+      childSelectors: {
+        ...prev.childSelectors,
+        [childField]: [...(prev.childSelectors[childField] || []), { type, value: '' }]
+      }
+    }));
+  };
+  const removeChildSelector = (childField: string, idx: number) => {
+    setFormData(prev => ({
+      ...prev,
+      childSelectors: {
+        ...prev.childSelectors,
+        [childField]: (prev.childSelectors[childField] || []).filter((_, i) => i !== idx)
+      }
+    }));
+  };
+  const updateChildSelector = (childField: string, idx: number, key: keyof SelectorObject, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      childSelectors: {
+        ...prev.childSelectors,
+        [childField]: (prev.childSelectors[childField] || []).map((sel, i) => i === idx ? { ...sel, [key]: value } : sel)
+      }
+    }));
   };
 
   const handleInputChange = (field: string, value: string | boolean) => {
@@ -204,18 +292,12 @@ export function ScrapersPage() {
         existingSelectors = currentScraper?.selectors || {};
       }
 
-      // Prepare the selectors object
+      // Prepare the selectors object for submission
       const newSelectors: Scraper['selectors'] = {
-        main: formData.selector || '',
-        pagination: formData.paginationSelector || '',
-        dropdownClick: formData.dropdownClickSelector || '',
-        child: formData.childSelectors ? JSON.parse(formData.childSelectors) : {},
-        name: formData.phase2Selectors.name || '',
-        email: formData.phase2Selectors.email || '',
-        phone: formData.phase2Selectors.phone || '',
-        address: formData.phase2Selectors.address || '',
-        website: formData.phase2Selectors.website || '',
-        sector: ''
+        main: formData.mainSelectors,
+        pagination: formData.paginationSelectors,
+        dropdownClick: formData.dropdownClickSelectors,
+        child: formData.childSelectors,
       };
 
       const scraperData = {
@@ -241,10 +323,17 @@ export function ScrapersPage() {
       setFormData({
         name: '',
         source: '',
-        selector: '',
-        paginationSelector: '',
-        dropdownClickSelector: '',
-        childSelectors: '',
+        mainSelectors: [{ type: 'css', value: '' }],
+        paginationSelectors: [],
+        dropdownClickSelectors: [],
+        childSelectors: {
+          name: [{ type: 'css', value: '' }],
+          phone: [],
+          email: [],
+          website: [],
+          address: [],
+          sector: [],
+        },
         engine: 'playwright',
         frequency: 'manual',
         country: '',
@@ -276,10 +365,22 @@ export function ScrapersPage() {
     setFormData({
       name: scraper.name,
       source: scraper.source,
-      selector: scraper.selectors?.main || '',
-      paginationSelector: scraper.selectors?.pagination || '',
-      dropdownClickSelector: scraper.selectors?.dropdownClick || '',
-      childSelectors: scraper.selectors?.child ? JSON.stringify(scraper.selectors.child) : '',
+      mainSelectors: Array.isArray(scraper.selectors?.main)
+        ? scraper.selectors.main.map(s => typeof s === 'string' ? { type: 'css', value: s } : { type: s.type ?? 'css', value: String(s.value ?? '') })
+        : typeof scraper.selectors?.main === 'string' && scraper.selectors.main
+          ? [{ type: 'css', value: scraper.selectors.main }]
+          : [{ type: 'css', value: '' }],
+      paginationSelectors: Array.isArray(scraper.selectors?.pagination)
+        ? scraper.selectors.pagination.map(s => typeof s === 'string' ? { type: 'css', value: s } : { type: s.type ?? 'css', value: String(s.value ?? '') })
+        : typeof scraper.selectors?.pagination === 'string' && scraper.selectors.pagination
+          ? [{ type: 'css', value: scraper.selectors.pagination }]
+          : [],
+      dropdownClickSelectors: Array.isArray(scraper.selectors?.dropdownClick)
+        ? scraper.selectors.dropdownClick.map(s => typeof s === 'string' ? { type: 'css', value: s } : { type: s.type ?? 'css', value: String(s.value ?? '') })
+        : typeof scraper.selectors?.dropdownClick === 'string' && scraper.selectors.dropdownClick
+          ? [{ type: 'css', value: scraper.selectors.dropdownClick }]
+          : [],
+      childSelectors: scraper.selectors?.child ? JSON.parse(JSON.stringify(scraper.selectors.child)) : { name: [{ type: 'css', value: '' }], phone: [], email: [], website: [], address: [], sector: [] },
       engine: scraper.type,
       frequency: scraper.frequency,
       country: scraper.country || '',
@@ -298,10 +399,17 @@ export function ScrapersPage() {
     setFormData({
       name: '',
       source: '',
-      selector: '',
-      paginationSelector: '',
-      dropdownClickSelector: '',
-      childSelectors: '',
+      mainSelectors: [{ type: 'css', value: '' }],
+      paginationSelectors: [],
+      dropdownClickSelectors: [],
+      childSelectors: {
+        name: [{ type: 'css', value: '' }],
+        phone: [],
+        email: [],
+        website: [],
+        address: [],
+        sector: [],
+      },
       engine: 'playwright',
       frequency: 'manual',
       country: '',
@@ -317,7 +425,27 @@ export function ScrapersPage() {
 
   const handleCancel = () => {
     setShowForm(false);
-    setFormData({ name: '', source: '', selector: '', paginationSelector: '', dropdownClickSelector: '', childSelectors: '', engine: 'playwright', frequency: 'manual', country: '', twoPhaseScraping: 'false', phase1Selectors: { name: '', dropdownTrigger: '' }, phase2Selectors: { name: '', phone: '', email: '', website: '', address: '' } });
+    setFormData({
+      name: '',
+      source: '',
+      mainSelectors: [{ type: 'css', value: '' }],
+      paginationSelectors: [],
+      dropdownClickSelectors: [],
+      childSelectors: {
+        name: [{ type: 'css', value: '' }],
+        phone: [],
+        email: [],
+        website: [],
+        address: [],
+        sector: [],
+      },
+      engine: 'playwright',
+      frequency: 'manual',
+      country: '',
+      twoPhaseScraping: 'false',
+      phase1Selectors: { name: '', dropdownTrigger: '' },
+      phase2Selectors: { name: '', phone: '', email: '', website: '', address: '' }
+    });
   };
 
   const handleDeleteScraper = async (id: string) => {
@@ -563,6 +691,21 @@ export function ScrapersPage() {
       scraperStatusService.disconnect();
     };
   }, []);
+
+  const openTestModal = (field: string, idx: number, selectorType: string, selectorValue: string) => {
+    setTestModal({ open: true, selectorType, selectorValue, field, idx });
+    setTestInput('');
+    setTestResult(null);
+  };
+  const closeTestModal = () => {
+    setTestModal({ open: false, selectorType: '', selectorValue: '', field: '', idx: -1 });
+    setTestInput('');
+    setTestResult(null);
+  };
+  const handleTestSelector = () => {
+    // Placeholder: In a real implementation, call backend or run JS to test selector
+    setTestResult('Test non implémenté pour le moment.');
+  };
 
   return (
     <div className="space-y-8 p-6 relative">
@@ -1036,42 +1179,235 @@ export function ScrapersPage() {
                 </div>
               )}
 
+              {/* Main Selectors (dynamic array UI) */}
               <div className="space-y-2">
-                <label htmlFor="selector" className="text-sm font-medium">Sélecteurs CSS</label>
-                <Input 
-                  id="selector" 
-                  placeholder="Ex: .card, span.palmares-phone, a[href^='mailto:'], a[href^='http']"
-                  value={formData.selector}
-                  onChange={(e) => handleInputChange('selector', e.target.value)}
-                />
+                <label className="text-sm font-medium">Sélecteurs principaux</label>
+                {formData.mainSelectors.map((selector, idx) => (
+                  <div key={idx} className="flex gap-2 items-center mb-1">
+                    <Select
+                      value={selector.type}
+                      onValueChange={value => updateSelector('mainSelectors', idx, 'type', value)}
+                    >
+                      <SelectTrigger className="w-[90px]">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="css">CSS</SelectItem>
+                        <SelectItem value="xpath">XPath</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      className="flex-1"
+                      placeholder="Valeur du sélecteur"
+                      value={selector.value}
+                      onChange={e => updateSelector('mainSelectors', idx, 'value', e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeSelector('mainSelectors', idx)}
+                      disabled={formData.mainSelectors.length === 1}
+                    >
+                      -
+                    </Button>
+                    {idx === formData.mainSelectors.length - 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => addSelector('mainSelectors')}
+                      >
+                        +
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openTestModal('mainSelectors', idx, selector.type, selector.value)}
+                    >
+                      Tester
+                    </Button>
+                  </div>
+                ))}
               </div>
+
+              {/* Pagination Selectors (dynamic array UI) */}
               <div className="space-y-2">
-                <label htmlFor="paginationSelector" className="text-sm font-medium">Sélecteur de pagination (optionnel)</label>
-                <Input
-                  id="paginationSelector"
-                  placeholder="Ex: .pagination-next, .Pagination-link[rel=next]"
-                  value={formData.paginationSelector}
-                  onChange={(e) => handleInputChange('paginationSelector', e.target.value)}
-                />
+                <label className="text-sm font-medium">Sélecteurs de pagination (optionnel)</label>
+                {formData.paginationSelectors.length === 0 && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => addSelector('paginationSelectors')}>+ Ajouter un sélecteur</Button>
+                )}
+                {formData.paginationSelectors.map((selector, idx) => (
+                  <div key={idx} className="flex gap-2 items-center mb-1">
+                    <Select
+                      value={selector.type}
+                      onValueChange={value => updateSelector('paginationSelectors', idx, 'type', value)}
+                    >
+                      <SelectTrigger className="w-[90px]">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="css">CSS</SelectItem>
+                        <SelectItem value="xpath">XPath</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      className="flex-1"
+                      placeholder="Valeur du sélecteur"
+                      value={selector.value}
+                      onChange={e => updateSelector('paginationSelectors', idx, 'value', e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeSelector('paginationSelectors', idx)}
+                    >
+                      -
+                    </Button>
+                    {idx === formData.paginationSelectors.length - 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => addSelector('paginationSelectors')}
+                      >
+                        +
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openTestModal('paginationSelectors', idx, selector.type, selector.value)}
+                    >
+                      Tester
+                    </Button>
+                  </div>
+                ))}
               </div>
+
+              {/* Dropdown Click Selectors (dynamic array UI) */}
               <div className="space-y-2">
-                <label htmlFor="dropdownClickSelector" className="text-sm font-medium">Sélecteur pour ouvrir les dropdowns (optionnel)</label>
-                <Input
-                  id="dropdownClickSelector"
-                  placeholder="Ex: .accordion-toggle, .dropdown-arrow"
-                  value={formData.dropdownClickSelector || ''}
-                  onChange={(e) => handleInputChange('dropdownClickSelector', e.target.value)}
-                />
+                <label className="text-sm font-medium">Sélecteurs pour ouvrir les dropdowns (optionnel)</label>
+                {formData.dropdownClickSelectors.length === 0 && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => addSelector('dropdownClickSelectors')}>+ Ajouter un sélecteur</Button>
+                )}
+                {formData.dropdownClickSelectors.map((selector, idx) => (
+                  <div key={idx} className="flex gap-2 items-center mb-1">
+                    <Select
+                      value={selector.type}
+                      onValueChange={value => updateSelector('dropdownClickSelectors', idx, 'type', value)}
+                    >
+                      <SelectTrigger className="w-[90px]">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="css">CSS</SelectItem>
+                        <SelectItem value="xpath">XPath</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      className="flex-1"
+                      placeholder="Valeur du sélecteur"
+                      value={selector.value}
+                      onChange={e => updateSelector('dropdownClickSelectors', idx, 'value', e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeSelector('dropdownClickSelectors', idx)}
+                    >
+                      -
+                    </Button>
+                    {idx === formData.dropdownClickSelectors.length - 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => addSelector('dropdownClickSelectors')}
+                      >
+                        +
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openTestModal('dropdownClickSelectors', idx, selector.type, selector.value)}
+                    >
+                      Tester
+                    </Button>
+                  </div>
+                ))}
               </div>
+
+              {/* Child Selectors (dynamic array UI) */}
               <div className="space-y-2">
-                <label htmlFor="childSelectors" className="text-sm font-medium">Sélecteurs enfants (JSON)</label>
-                <Textarea
-                  id="childSelectors"
-                      placeholder={`Exemple: {"name": "h3.SearchResult-title", "phone": "span.SearchResult-btnText", "address": "small.SearchResult-location a", "sector": "div.SearchResult-description"}`}
-                  value={formData.childSelectors || ''}
-                  onChange={(e) => handleInputChange('childSelectors', e.target.value)}
-                  rows={4}
-                />
+                <label className="text-sm font-medium">Sélecteurs enfants</label>
+                <div className="grid grid-cols-2 gap-4">
+                  {Object.entries(formData.childSelectors).map(([childField, selectors]) => (
+                    <div key={childField} className="space-y-1">
+                      <div className="font-semibold text-xs mb-1 capitalize">{childField}</div>
+                      {selectors.length === 0 && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => addChildSelector(childField)}>
+                          + Ajouter un sélecteur
+                        </Button>
+                      )}
+                      {selectors.map((selector, idx) => (
+                        <div key={idx} className="flex gap-2 items-center mb-1">
+                          <Select
+                            value={selector.type}
+                            onValueChange={value => updateChildSelector(childField, idx, 'type', value)}
+                          >
+                            <SelectTrigger className="w-[90px]">
+                              <SelectValue placeholder="Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="css">CSS</SelectItem>
+                              <SelectItem value="xpath">XPath</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            className="flex-1"
+                            placeholder="Valeur du sélecteur"
+                            value={selector.value}
+                            onChange={e => updateChildSelector(childField, idx, 'value', e.target.value)}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeChildSelector(childField, idx)}
+                          >
+                            -
+                          </Button>
+                          {idx === selectors.length - 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => addChildSelector(childField)}
+                            >
+                              +
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openTestModal(`childSelectors.${childField}`, idx, selector.type, selector.value)}
+                          >
+                            Tester
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -1143,6 +1479,34 @@ export function ScrapersPage() {
               </Button>
             </CardFooter>
           </form>
+          {/* Selector Test Modal */}
+          <Dialog open={testModal.open} onOpenChange={open => !open && closeTestModal()}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Tester le sélecteur</DialogTitle>
+                <DialogDescription>
+                  Type: <b>{testModal.selectorType}</b> <br />
+                  Valeur: <b>{testModal.selectorValue}</b>
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2">
+                <Input
+                  placeholder="URL de la page ou HTML à tester (non fonctionnel pour l'instant)"
+                  value={testInput}
+                  onChange={e => setTestInput(e.target.value)}
+                />
+                <Button type="button" onClick={handleTestSelector}>
+                  Lancer le test
+                </Button>
+                {testResult && (
+                  <div className="mt-2 text-sm text-muted-foreground">Résultat: {testResult}</div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={closeTestModal}>Fermer</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </Card>
       )}
     </div>

@@ -1,0 +1,159 @@
+ break down the plan into actionable frontend features and data contracts, then check if the frontend:
+Matches the backend’s new/expected API contracts and data shapes.
+Implements the required UI/UX for all features (selector testing, job queue, run logs, etc.).
+Is ready for the new/changed backend endpoints and data flows.
+
+Audit the Frontend Codebase
+I’ll list and review all relevant frontend files (especially services, components, and state management).
+I’ll check for mismatches in:
+API endpoints (URLs, methods, payloads)
+Data structures (selectors, pagination, job status, etc.)
+UI/UX flows (selector testing, job status, run logs, etc.)
+
+ Propose and Implement Fixes/Improvements
+I’ll update or create frontend services, types, and components as needed.
+I’ll ensure all new backend features (selector testing, job queue, run logs, etc.) are accessible and usable from the frontend.
+I’ll ensure the frontend is robust to the new/changed backend data structures (e.g., selectors as arrays, job status polling, etc.).
+
+Link Everything and Test End-to-End
+I’ll make sure all frontend actions are correctly linked to backend endpoints.
+I’ll ensure the UI reflects backend state (job status, logs, selector test results, etc.).
+I’ll add or update documentation/comments as needed.
+
+
+ Plan Review: What the Frontend Must Support
+Selector Definition & Testing
+Backend expects: Selectors as arrays of objects (e.g., [{type: "css", value: ".title"}]), not just strings.
+Frontend must: Allow users to define multiple selectors per field, specify type (CSS/XPath), and test selectors via a backend endpoint.
+Job Queue Integration
+Backend: Scraping is queued, returns a job ID, and job status/progress is polled.
+Frontend must: Show job status, allow users to check progress, and display logs.
+Run Logs & Statistics
+Backend: Stores run logs, errors, stats per job.
+Frontend must: Display job history, run logs, and statistics per scraper.
+
+
+Data Export
+Backend: Endpoint to export data as CSV.
+Frontend must: Provide a “Download CSV” button for each job/run.
+Configuration Management
+Backend: Scraper configs are versioned, CRUD endpoints exist.
+Frontend must: UI for listing, creating, editing, deleting, and versioning configs.
+Visual Setup Wizard (Phase 2)
+Backend: API for visual selector setup (future).
+Frontend must: UI for visual selector picking (future, but plan for it).
+
+
+2. Current Frontend Gaps (from code search and structure)
+Selector UI: The frontend (e.g., ScrapersPage.tsx) still uses single string selectors (selector, paginationSelector, etc.), not arrays of selector objects.
+Selector Testing: No clear UI for testing selectors against a URL and showing results.
+Job Queue: No clear job status polling or job log/history UI.
+Run Logs/Stats: Some stats components exist, but job/run logs per scraper are not clearly surfaced.
+Data Export: May exist, but needs to be checked for per-job/run export.
+Config Versioning: No clear UI for config versioning.
+3. Actionable Fixes & Improvements
+A. Update Selector Data Structures and UI
+Refactor all selector fields in forms/components to support arrays of {type, value} objects.
+Update forms to allow adding/removing multiple selectors per field, and specifying type (CSS/XPath)
+Update API calls to send/receive selectors in the new format.
+
+Add Selector Testing UI
+Add a “Test Selector” button next to each selector input.
+On click, call the backend test endpoint, display match count and preview results.
+C. Job Queue & Status
+After starting a scrape, show job ID and status.
+Poll backend for job status/progress.
+Display logs and errors for each job.
+D. Run Logs & Statistics
+Add a “Job History” or “Run Log” section per scraper.
+Show past runs, status, items extracted, duration, and logs.
+E. Data Export
+Add a “Download CSV” button for each completed job/run.
+F. Config Management
+UI for listing, creating, editing, deleting, and versioning scraper configs.
+UI for listing, creating, editing, deleting, and versioning scraper configs.
+G. Prepare for Visual Setup Wizard
+Modularize selector UI to allow plugging in a visual picker in the future.
+
+4. Next Steps: Implementation Plan
+Refactor selector data structures in frontend types and forms.
+Update all API calls and services to use the new selector format.
+Add/Update UI for selector definition and testing.
+Add/Update job status, logs, and run history UI.
+Ensure data export and config management features are present and robust.
+Document all changes and update user-facing guides.
+
+
+Done this: 
+```
+Step 1: Define the New Selector Data Structure
+Old:
+main: string
+child: { name: string, phone: string, ... }
+etc.
+New (per plan):
+main: SelectorObject[]
+child: { name: SelectorObject[], phone: SelectorObject[], ... }
+SelectorObject = { type: "css" | "xpath", value: string }
+Step 2: Update Type Definitions
+Update all relevant TypeScript types/interfaces for scrapers and selectors.
+Step 3: Refactor Scraper Forms and Components
+Update forms to allow adding/removing multiple selectors per field.
+Allow specifying selector type (CSS/XPath) for each.
+Update state management to use arrays of selector objects.
+Update how selectors are sent to/received from the backend.
+Step 4: Update API Service Calls
+Update all API calls to use the new selector format.
+Ensure data is correctly serialized/deserialized.
+Step 5: Migration/Compatibility
+Add migration logic or UI fallback for existing scrapers with string selectors (convert to array with one object).
+Step 6: Selector Testing UI (if time allows)
+Add a “Test Selector” button for each selector.
+Call backend test endpoint, display results.
+``` 
+
+
+
+
+
+Doing this````
+Next Steps Breakdown
+1. Complete the UI Refactor for Selector Arrays
+Goal: Replace the current comma-separated string <Input>s for selectors with a robust UI for managing arrays of selector objects ({type, value}).
+Actions:
+For each selector field (mainSelectors, paginationSelectors, dropdownClickSelectors), provide:
+A list of selector rows, each with:
+A dropdown for selector type (css, xpath, etc.)
+An input for the selector value
+Add/Remove buttons for dynamic management
+Ensure the same for all child selectors (e.g., name, phone, etc.) in childSelectors.
+
+2. Update Child Selector UI
+Goal: Allow users to add/remove multiple selectors for each child field, with type selection.
+Actions:
+For each key in childSelectors, render a dynamic list of selector objects (type/value) with add/remove controls.
+3. Add Selector Testing UI
+Goal: Let users test selectors against a live page or a sample HTML snippet.
+Actions:
+Add a "Test Selector" button next to each selector row.
+On click, open a modal or inline area to input a URL or HTML, run the selector, and show results.
+(This can be a stub/placeholder if backend support isn’t ready.)
+4. Ensure All Frontend/Backend Integration Matches the Plan
+Goal: All data sent to/received from the backend should use the new selector object array format.
+Actions:
+Double-check all API calls and data transformations.
+Add migration logic for legacy data (already started in handleEditScraper).
+
+5. Implement Pub/Sub for Worker-to-Frontend WebSocket Updates
+Goal: Enable real-time status updates from the worker process to the frontend.
+Actions:
+(Backend) Use Redis Pub/Sub or similar to bridge status messages from the worker to the API process.
+(Frontend) No immediate action unless you want to display a warning if real-time updates are not available.
+
+Implementation Plan
+I’ll start with the UI refactor for selector arrays in ScrapersPage.tsx:
+Replace the current <Input>s for selectors with a dynamic list UI for each selector array.
+Do the same for each child selector field.
+Ensure add/remove/type selection for each selector.
+Remove the old comma-separated string logic.
+After that, I’ll outline the selector testing UI and ensure all data contracts are correct.

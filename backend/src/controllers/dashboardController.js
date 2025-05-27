@@ -1,4 +1,4 @@
-const { supabase } = require('../config/supabaseClient');
+const { supabase } = require('../db/supabase');
 const logger = require('../utils/logger');
 
 /**

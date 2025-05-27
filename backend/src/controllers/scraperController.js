@@ -1,6 +1,7 @@
 const logger = require('../utils/logger');
 const { supabase } = require('../db/supabase');
 const { scraperQueue } = require('../config/queue');
+const autoLabelingService = require('../services/autoLabelingService');
 
 /**
  * Run a scraper by ID
@@ -217,8 +218,9 @@ async function createScraper(req, res, next) {
         frequency: frequency || 'manual',
         status: 'idle',
         data_count: 0,
-        type: type || 'playwright', // Default to Playwright
-        country: country || 'Unknown' // Include the country field
+        type: type || 'playwright',
+        country: country || 'Unknown',
+        version: 1 // Start at version 1
       }])
       .select()
       .single();
@@ -443,6 +445,9 @@ async function updateScraper(req, res, next) {
       return res.status(404).json({ error: 'Scraper not found' });
     }
 
+    // Increment version
+    const newVersion = (existingScraper.version || 1) + 1;
+
     // Update the scraper
     const { data, error } = await supabase
       .from('scrapers')
@@ -453,7 +458,7 @@ async function updateScraper(req, res, next) {
         frequency: frequency || existingScraper.frequency,
         type: type || existingScraper.type,
         country: country || existingScraper.country,
-        // PATCH: ensure updated_at is set on update (restored from old code)
+        version: newVersion,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -569,6 +574,162 @@ async function debugScraperQueries(req, res, next) {
   }
 }
 
+// CRUD endpoints for configs (versioned)
+async function listConfigs(req, res) {
+  try {
+    const { data, error } = await supabase
+      .from('scrapers')
+      .select('id, name, version, created_at, updated_at')
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+async function getConfig(req, res) {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('scrapers')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+async function deleteConfig(req, res) {
+  try {
+    const { id } = req.params;
+    const { error } = await supabase
+      .from('scrapers')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    res.json({ message: 'Config deleted' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// Set transformation rules for a scraper
+async function setTransformations(req, res) {
+  try {
+    const { id } = req.params;
+    const { transformations } = req.body;
+    if (!Array.isArray(transformations)) {
+      return res.status(400).json({ error: 'Transformations must be an array' });
+    }
+    const { data: scraper, error } = await supabase
+      .from('scrapers')
+      .select('config')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    const updatedConfig = { ...scraper.config, transformations };
+    await supabase
+      .from('scrapers')
+      .update({ config: updatedConfig })
+      .eq('id', id);
+    res.json({ message: 'Transformations updated', transformations });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// Get transformation rules for a scraper
+async function getTransformations(req, res) {
+  try {
+    const { id } = req.params;
+    const { data: scraper, error } = await supabase
+      .from('scrapers')
+      .select('config')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    res.json({ transformations: scraper.config?.transformations || [] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// Auto-labeling endpoint
+async function autoLabelField(req, res) {
+  try {
+    const { value, context, headerText } = req.body;
+    const result = await autoLabelingService.detectFieldType({ value, context, headerText });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// Share a scraper config with another user
+async function shareScraper(req, res) {
+  try {
+    const { id } = req.params; // scraper id
+    const { userId } = req.body; // user to share with
+    const sharedBy = req.user?.id || null;
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
+    await supabase.from('scraper_shares').insert({
+      scraper_id: id,
+      user_id: userId,
+      shared_by: sharedBy,
+      created_at: new Date().toISOString()
+    });
+    res.json({ message: 'Scraper shared' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// List scrapers shared with the current user
+async function getSharedScrapers(req, res) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+    const { data, error } = await supabase
+      .from('scraper_shares')
+      .select('scraper_id, scrapers(*)')
+      .eq('user_id', userId);
+    if (error) throw error;
+    res.json(data.map(row => row.scrapers));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// List alerts for a scraper or for the current user
+async function listAlerts(req, res) {
+  try {
+    const { scraperId } = req.query;
+    const userId = req.user?.id;
+    let query = supabase.from('alerts').select('*').order('created_at', { ascending: false });
+    if (scraperId) {
+      query = query.eq('scraper_id', scraperId);
+    } else if (userId) {
+      // Join with scraper_shares to get alerts for scrapers shared with the user
+      const { data: shares, error: shareError } = await supabase
+        .from('scraper_shares')
+        .select('scraper_id')
+        .eq('user_id', userId);
+      if (shareError) throw shareError;
+      const scraperIds = shares.map(s => s.scraper_id);
+      query = query.in('scraper_id', scraperIds);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
 // Update the exports to include debugScraperQueries
 module.exports = {
   getAllScrapers,
@@ -583,5 +744,14 @@ module.exports = {
   updateScraper,
   deleteScraper,
   getScraperById,
-  debugScraperQueries  // Add this line
+  debugScraperQueries,
+  listConfigs,
+  getConfig,
+  deleteConfig,
+  setTransformations,
+  getTransformations,
+  autoLabelField,
+  shareScraper,
+  getSharedScrapers,
+  listAlerts
 };

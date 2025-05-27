@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const scraperStatusHandler = require('../websocket/scraperStatusHandler');
 const alertingService = require('../services/alertingService');
 const securityService = require('../services/securityService');
+const proxyService = require('../services/proxyService');
 
 // Field type detection patterns
 const fieldPatterns = {
@@ -143,12 +144,31 @@ async function playwrightScraper(url, config, scraperId) {
   let retryCount = 0;
   let errorCount = 0;
   let pageLoadTimes = [];
+  let hashMismatchReported = false;
+  let proxy = null;
 
   try {
+    // Get proxy for this run (if any)
+    try {
+      proxy = await proxyService.getNextProxy(scraperId);
+      if (proxy) {
+        logger.info(`Using proxy for scraper ${scraperId}: ${proxy.host}:${proxy.port}`);
+        launchOptions.proxy = {
+          server: `http://${proxy.host}:${proxy.port}`
+        };
+        if (proxy.username && proxy.password) {
+          launchOptions.proxy.username = proxy.username;
+          launchOptions.proxy.password = proxy.password;
+        }
+      }
+    } catch (e) {
+      logger.warn(`No proxy used for scraper ${scraperId}: ${e.message}`);
+    }
+
     const browserType = chromium; // Or specify based on config if needed
     browser = await browserType.launch(launchOptions);
     logger.info('Playwright browser launched successfully.');
-    scraperStatusHandler.updateStatus(scraperId, {
+    scraperStatusHandler.sendStatus(scraperId, {
       status: 'running', currentPage: 0, totalItems: 0, type: 'info', message: 'Browser launched successfully'
     });
 
@@ -169,7 +189,6 @@ async function playwrightScraper(url, config, scraperId) {
     page.setDefaultTimeout(navigationTimeout); // For other actions like clicks, waitForSelector
 
     let currentUrl = url;
-    let hashMismatchReported = false;
 
     while (hasNextPage && (pageNum <= (config.pagination?.maxPages || parseInt(process.env.MAX_PAGES_PER_SCRAPE, 10) || 50))) {
       metrics.totalRequests++;
@@ -193,19 +212,19 @@ async function playwrightScraper(url, config, scraperId) {
       }
 
       logger.info(`Scraping page ${pageNum}: ${currentUrl}`);
-      scraperStatusHandler.updateStatus(scraperId, {
+      scraperStatusHandler.sendStatus(scraperId, {
         status: 'running', currentPage: pageNum, totalItems: results.length, type: 'info', message: `Navigating to page ${pageNum}: ${currentUrl.substring(0, 100)}...`
       });
 
       try {
-        logger.info(`Attempting page.goto(\'${currentUrl}\')`);
+        logger.info(`Attempting page.goto('${currentUrl}')`);
         const response = await page.goto(currentUrl, { waitUntil: 'domcontentloaded' });
         if (response) {
             logger.info(`Navigation to ${currentUrl} successful. Status: ${response.status()}`);
         } else {
             logger.warn(`Navigation to ${currentUrl} returned null/undefined response object.`);
         }
-        scraperStatusHandler.updateStatus(scraperId, {
+        scraperStatusHandler.sendStatus(scraperId, {
             status: 'running', currentPage: pageNum, totalItems: results.length, type: 'info', message: `Page ${pageNum} loaded. Searching for content...`
         });
       } catch (navError) {
@@ -240,7 +259,7 @@ async function playwrightScraper(url, config, scraperId) {
             })
             .eq('id', scraperId);
 
-          scraperStatusHandler.updateStatus(scraperId, {
+          scraperStatusHandler.sendStatus(scraperId, {
             status: 'warning',
             currentPage: pageNum,
             totalItems: results.length,
@@ -260,6 +279,9 @@ async function playwrightScraper(url, config, scraperId) {
               await page.waitForTimeout(expandConfig.waitAfterClick || 200);
             } catch (e) {
               logger.warn(`Failed to click expandable element: ${e.message}`);
+              scraperStatusHandler.sendStatus(scraperId, {
+                status: 'running', currentPage: pageNum, totalItems: results.length, type: 'warning', message: `Failed to click expandable element: ${e.message}`
+              });
             }
           }
         }
@@ -268,41 +290,62 @@ async function playwrightScraper(url, config, scraperId) {
       // Extract data with enhanced selector support and fallback
       try {
         const pageResults = await page.evaluate((config) => {
+          function detectFieldType(value) {
+            if (!value || typeof value !== 'string') return 'text';
+            for (const [type, pattern] of Object.entries(fieldPatterns)) {
+              if (pattern.test(value.trim())) {
+                return type;
+              }
+            }
+            return 'text';
+          }
+
+          // Ensure detectFieldType is available in evaluate context if it was defined outside
+          const fieldPatterns = {
+            email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+            phone: /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/,
+            price: /^\$?\d+(?:[.,]\d{2})?$/,
+            date: /^\d{4}-\d{2}-\d{2}|\d{2}[-/]\d{2}[-/]\d{4}|\w+ \d{1,2},? \d{4}/,
+            url: /^(https?:\/\/)?[\w-]+(\.[\w-]+)+[/#?]?.*$/,
+            address: /(street|avenue|road|boulevard|lane|drive|way|court|circle|plaza|square)/i,
+            socialMedia: /(facebook|twitter|linkedin|instagram|youtube)\.com/i
+          };
+          function localDetectFieldType(value) {
+            if (!value || typeof value !== 'string') return 'text';
+            for (const [type, pattern] of Object.entries(fieldPatterns)) {
+              if (pattern.test(value.trim())) {
+                return type;
+              }
+            }
+            return 'text';
+          }
+
           function extractFieldValue(container, fieldConfig) {
-            // Try each selector in order until one works
-            for (const selector of fieldConfig.selectors) {
+            // Ensure fieldConfig.selectors is an array
+            const selectorsToTry = Array.isArray(fieldConfig.selectors) ? fieldConfig.selectors :
+                                   (typeof fieldConfig === 'string' ? [{ type: 'css', value: fieldConfig }] : []);
+
+            for (const selectorObj of selectorsToTry) {
               try {
-                const element = container.querySelector(selector.value);
+                const selectorValue = typeof selectorObj === 'string' ? selectorObj : selectorObj.value;
+                if (!selectorValue) continue;
+                const element = container.querySelector(selectorValue);
                 if (element) {
                   const rawValue = element.innerText.trim();
                   const href = element.href;
-                  
-                  // Auto-detect field type if not specified
-                  const fieldType = fieldConfig.type || detectFieldType(rawValue);
+                  const fieldType = (typeof selectorObj === 'object' && selectorObj.type) || fieldConfig.type || localDetectFieldType(rawValue);
                   
                   switch(fieldType) {
-                    case 'email':
-                      return href?.startsWith('mailto:') ? 
-                        href.replace('mailto:', '') : rawValue;
-                    case 'url':
-                      return href || rawValue;
-                    case 'phone':
-                      return href?.startsWith('tel:') ? 
-                        href.replace('tel:', '') : rawValue;
-                    case 'price':
-                      return rawValue.replace(/[^0-9.]/g, '');
-                    case 'date':
-                      try {
-                        return new Date(rawValue).toISOString();
-                      } catch {
-                        return rawValue;
-                      }
-                    default:
-                      return rawValue;
+                    case 'email': return href?.startsWith('mailto:') ? href.replace('mailto:', '') : rawValue;
+                    case 'url': return href || rawValue;
+                    case 'phone': return href?.startsWith('tel:') ? href.replace('tel:', '') : rawValue;
+                    case 'price': return rawValue.replace(/[^0-9.]/g, '');
+                    case 'date': try { return new Date(rawValue).toISOString(); } catch { return rawValue; }
+                    default: return rawValue;
                   }
                 }
               } catch (error) {
-                console.warn(`Selector ${selector.value} failed:`, error);
+                console.warn(`Selector ${selectorObj.value || selectorObj} failed:`, error);
                 continue;
               }
             }
@@ -312,9 +355,13 @@ async function playwrightScraper(url, config, scraperId) {
           const results = [];
           let mainElements = [];
 
-          // Try each main selector until we find matching elements
-          for (const mainSelector of config.main.selectors) {
-            mainElements = document.querySelectorAll(mainSelector.value);
+          // Adapt for config.main being a string or an object with a selectors array
+          const mainSelectorConfigs = Array.isArray(config.main?.selectors) ? config.main.selectors :
+                                      (typeof config.main === 'string' ? [{ type: 'css', value: config.main }] : []);
+
+          for (const mainSelectorConfig of mainSelectorConfigs) {
+            if (typeof mainSelectorConfig.value !== 'string') continue; // Skip if no valid selector value
+            mainElements = document.querySelectorAll(mainSelectorConfig.value);
             if (mainElements.length > 0) break;
           }
 
@@ -343,7 +390,7 @@ async function playwrightScraper(url, config, scraperId) {
         logger.info(`Found ${pageResults.length} results on page ${pageNum}`);
         results = results.concat(pageResults);
 
-        scraperStatusHandler.updateStatus(scraperId, {
+        scraperStatusHandler.sendStatus(scraperId, {
           status: 'running', currentPage: pageNum, totalItems: results.length, type: 'success', message: `Found ${pageResults.length} items on page ${pageNum}. Total: ${results.length}`
         });
 
@@ -440,7 +487,7 @@ async function playwrightScraper(url, config, scraperId) {
     }
 
     logger.info('Scraping loop completed.');
-    scraperStatusHandler.updateStatus(scraperId, {
+    scraperStatusHandler.sendStatus(scraperId, {
       status: 'completed', currentPage: pageNum -1, totalItems: results.length, type: 'success', message: 'Scraping process finished by Playwright.'
     });
 
@@ -464,7 +511,8 @@ async function playwrightScraper(url, config, scraperId) {
     if (shouldRetry && !securityService.detectSuspiciousActivity(metrics)) {
       return playwrightScraper(url, config, scraperId);
     }
-    return puppeteerScraper(url, config, scraperId);
+    logger.error(`Playwright scraper final failure for ${scraperId} after ${retryCount} retries: ${error.message}`);
+    throw error;
   } finally {
     if (browser && browser.isConnected()) {
       logger.info('Finalizing Playwright: closing browser...');
@@ -508,23 +556,14 @@ async function handleError(error, scraperId, pageNum, results, browser, retryCou
   });
 
   logger.error(`Scraper ${scraperId} error (attempt ${retryCount + 1}): ${error.message}`);
-
-  // Update error statistics
-  await supabase
-    .from('scraping_jobs')
-    .update({
-      error_count: retryCount + 1,
-      last_error: error.message,
-      error_type: errorType
-    })
-    .eq('scraper_id', scraperId);
-
-  // Emit error for real-time monitoring
-  webSocketManager.emitError(scraperId, {
-    type: errorType,
-    message: error.message,
-    pageNumber: pageNum,
-    itemsCollected: results.length
+  
+  scraperStatusHandler.sendStatus(scraperId, {
+    status: 'error',
+    type: 'error',
+    message: `Error on page ${pageNum} (attempt ${retryCount + 1}): ${error.message.substring(0,100)}`,
+    currentPage: pageNum,
+    totalItems: results.length,
+    error: error.message
   });
 
   // Handle specific error types
@@ -543,7 +582,6 @@ async function handleError(error, scraperId, pageNum, results, browser, retryCou
 
     case 'BLOCKED':
       // Switch proxy if available
-      const proxyService = require('../services/proxyService');
       const nextProxy = await proxyService.getNextProxy(scraperId);
       if (nextProxy) {
         logger.info('Switching to next proxy after being blocked');

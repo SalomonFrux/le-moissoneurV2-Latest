@@ -1,18 +1,17 @@
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') }); // Load .env from backend directory
+
 const { server } = require('./server');
 const logger = require('./utils/logger');
-const supabase = require('./config/supabaseClient');
+const { testConnection } = require('./db/supabase');
 
 const PORT = process.env.PORT || 4000;
 
-// Test Supabase connection
-logger.info('Supabase URL:', { metadata: { url: process.env.SUPABASE_URL }});
-logger.info('Supabase Key:', { metadata: { key: 'key-exists' }});
+process.env.API_PROCESS = 'true';
 
-console.log('Testing Supabase connection...');
-supabase.from('users').select('*', { count: 'exact' }).limit(1)
+// Test Supabase connection before starting server
+testConnection()
   .then(() => {
-    console.log('Successfully connected to Supabase!');
-    
     // Start server after successful DB connection
     server.listen(PORT, () => {
       logger.info(`Server is running on port ${PORT}`);
@@ -20,7 +19,7 @@ supabase.from('users').select('*', { count: 'exact' }).limit(1)
     });
   })
   .catch(err => {
-    console.error('Failed to connect to Supabase:', err.message);
+    console.error('Failed to connect to Supabase:', err);
     process.exit(1);
   });
 

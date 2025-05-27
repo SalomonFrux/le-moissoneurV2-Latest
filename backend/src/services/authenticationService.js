@@ -53,7 +53,8 @@ class AuthenticationService {
    */
   generateToken(user) {
     const payload = {
-      uid: user.id,
+      userId: user.id,
+      email: user.email,
       role: user.role,
       iat: Math.floor(Date.now() / 1000)
     };
@@ -198,7 +199,7 @@ class AuthenticationService {
       const { data: userPermissions } = await supabase
         .from('user_permissions')
         .select('permission')
-        .eq('user_id', decoded.uid);
+        .eq('user_id', decoded.userId);
 
       const hasPermission = requiredPermissions.every(
         permission => userPermissions.some(p => p.permission === permission)

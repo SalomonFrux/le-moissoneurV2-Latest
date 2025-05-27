@@ -8,7 +8,7 @@ const performanceMonitor = require('./middleware/performanceMonitor');
 const sessionTimeout = require('./middleware/sessionTimeout');
 const backupService = require('./services/backupService');
 const { verifyToken } = require('./controllers/authController');
-const errorHandler = require('./middleware/errorHandler');
+const ErrorHandler = require('./middleware/errorHandler');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -66,7 +66,7 @@ app.use('/api/health', (req, res) => res.status(200).json({ status: 'ok' }));
 // Protected routes with activity tracking
 app.use('/api', activityTracker);
 app.use('/api/scrapers', verifyToken, scraperRoutes);
-app.use('/api/data', verifyToken, scrapedDataRoutes);
+app.use('/api/scraped-data', verifyToken, scrapedDataRoutes);
 app.use('/api/dashboard', verifyToken, dashboardRoutes);
 app.use('/api/export', verifyToken, exportRoutes);
 app.use('/api/setup', verifyToken, setupWizardRoutes);
@@ -75,6 +75,6 @@ app.use('/api/statistics', verifyToken, statisticsRoutes);
 app.use('/api/selector-test', verifyToken, selectorTestRoutes);
 
 // Error handling middleware - must be last
-app.use(errorHandler);
+app.use(ErrorHandler.handle);
 
 module.exports = app;

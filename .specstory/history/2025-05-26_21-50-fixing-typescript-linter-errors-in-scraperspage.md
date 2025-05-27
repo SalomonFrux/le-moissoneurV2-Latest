@@ -1900,6 +1900,582 @@ npm run dev:watch. What is the diffence? PLease explain it to me in simple term
 
 _**Assistant**_
 
+The difference between `npm run dev` and `npm run dev:watch` is how they handle changes to your code:
+
+1. **`npm run dev`**:
+   - This command starts your development server and runs your application once.
+   - If you make changes to your code, you need to manually stop the server (usually by pressing `Ctrl + C`) and restart it (`npm run dev` again) to see the changes.
+   - It's like turning on a light switch—once it's on, it stays on until you turn it off and on again.
+
+2. **`npm run dev:watch`**:
+   - This command also starts your development server, but it includes a "watcher" that monitors your files for changes.
+   - If you edit and save a file, the server automatically restarts to reflect the changes without you needing to do anything.
+   - It's like having a smart light that turns itself back on whenever you adjust the brightness.
+
+### Simple Summary:
+- **`npm run dev`**: Manual restart required after changes.
+- **`npm run dev:watch`**: Automatically restarts when you save changes.  
+
+Use `dev:watch` for a smoother development experience, especially when you're making frequent updates to your code.
+
+---
+
+_**User**_
+
+I am getting this error: 
+1|scraper-worker  | info: Starting scraper worker process... {"metadata":{},"timestamp":"2025-05-27 11:46:46:4646"}
+1|scraper-worker  | Error: Worker requires a connection
+1|scraper-worker  |     at new Worker (C:\Users\Salomon KS\Documents\DEV VS CODE\le-moissoneurV2\backend\node_modules\bullmq\dist\cjs\classes\worker.js:47:19)
+1|scraper-worker  |     at Object.<anonymous> (C:\Users\Salomon KS\Documents\DEV VS CODE\le-moissoneurV2\backend\worker.js:9:18)    
+1|scraper-worker  |     at Module._compile (node:internal/modules/cjs/loader:1469:14)
+1|scraper-worker  |     at Module._extensions..js (node:internal/modules/cjs/loader:1548:10)
+1|scraper-worker  |     at Module.load (node:internal/modules/cjs/loader:1288:32)
+1|scraper-worker  |     at Module._load (node:internal/modules/cjs/loader:1104:12)
+1|scraper-worker  |     at C:\Users\Salomon KS\AppData\Roaming\npm\node_modules\pm2\lib\ProcessContainer.js:292:27
+1|scraper-worker  |     at wrapper (C:\Users\Salomon KS\AppData\Roaming\npm\node_modules\pm2\node_modules\async\internal\once.js:12:16)
+1|scraper-worker  |     at next (C:\Users\Salomon KS\AppData\Roaming\npm\node_modules\pm2\node_modules\async\waterfall.js:96:20)    
+1|scraper-worker  |     at C:\Users\Salomon KS\AppData\Roaming\npm\node_modules\pm2\node_modules\async\internal\onlyOnce.js:12:16   
+PM2               | App name:scraper-worker id:1 disconnected
+PM2               | App [scraper-worker:1] exited with code [0] via signal [SIGINT]
+PM2               | App [scraper-worker:1] starting in -cluster mode-
+PM2               | App [scraper-worker:1] online
+0|scraper-api     | info: Supabase URL: {"metadata":{"metadata":{"url":"https://wnunkggxzzlvyrabmnwi.supabase.co"}},"timestamp":"2025-05-27 11:46:47:4647"}
+0|scraper-api     | info: Supabase Key: {"metadata":{"metadata":{"key":"key-exists"}},"timestamp":"2025-05-27 11:46:47:4647"}       
+0|scraper-api     | Testing Supabase connection...
+0|scraper-api     | TypeError: supabase.from is not a function
+0|scraper-api     |     at Object.<anonymous> (C:\Users\Salomon KS\Documents\DEV VS CODE\le-moissoneurV2\backend\src\index.js:12:10)
+0|scraper-api     |     at Module._compile (node:internal/modules/cjs/loader:1469:14)
+0|scraper-api     |     at Module._extensions..js (node:internal/modules/cjs/loader:1548:10)
+0|scraper-api     |     at Module.load (node:internal/modules/cjs/loader:1288:32)
+0|scraper-api     |     at Module._load (node:internal/modules/cjs/loader:1104:12)
+0|scraper-api     |     at C:\Users\Salomon KS\AppData\Roaming\npm\node_modules\pm2\lib\ProcessContainer.js:292:27
+0|scraper-api     |     at wrapper (C:\Users\Salomon KS\AppData\Roaming\npm\node_modules\pm2\node_modules\async\internal\once.js:12:16)
+0|scraper-api     |     at next (C:\Users\Salomon KS\AppData\Roaming\npm\node_modules\pm2\node_modules\async\waterfall.js:96:20)    
+0|scraper-api     |     at C:\Users\Salomon KS\AppData\Roaming\npm\node_modules\pm2\node_modules\async\internal\onlyOnce.js:12:16   
+0|scraper-api     |     at WriteStream.<anonymous> (C:\Users\Salomon KS\AppData\Roaming\npm\node_modules\pm2\lib\Utility.js:186:13) 
+0|scraper-api     |     at WriteStream.emit (node:events:518:28)
+0|scraper-api     |     at node:internal/fs/streams:78:16
+5-05-27 11:46:47:4647"}
+0|scraper-api     | info: Supabase Key: {"metadata":{"metadata":{"key":"key-exists"}},"timestamp":"2025-05-27 11:46:47:4647"}       
+0|scraper-api     | Testing Supabase connection...
+0|scraper-api     | TypeError: supabase.from is not a function
+0|scraper-api     |     at Object.<anonymous> (C:\Users\Salomon KS\Documents\DEV VS CODE\le-moissoneurV2\backend\src\index.js:12:10)
+0|scraper-api     |     at Module._compile (node:internal/modules/cjs/loader:1469:14)
+0|scraper-api     |     at Module._extensions..js (node:internal/modules/cjs/loader:1548:10)
+0|scraper-api     |     at Module.load (node:internal/modules/cjs/loader:1288:32)
+0|scraper-api     |     at Module._load (node:internal/modules/cjs/loader:1104:12)
+0|scraper-api     |     at C:\Users\Salomon KS\AppData\Roaming\npm\node_modules\pm2\lib\ProcessContainer.js:292:27
+0|scraper-api     |     at wrapper (C:\Users\Salomon KS\AppData\Roaming\npm\node_modules\pm2\node_modules\async\internal\once.js:12:16)
+0|scraper-api     |     at next (C:\Users\Salomon KS\AppData\Roaming\npm\node_modules\pm2\node_modules\async\waterfall.js:96:20)    
+0|scraper-api     |     at C:\Users\Salomon KS\AppData\Roaming\npm\node_modules\pm2\node_modules\async\internal\onlyOnce.js:12:16   
+0|scraper-api     |     at WriteStream.<anonymous> (C:\Users\Salomon KS\AppData\Roaming\npm\node_modules\pm2\lib\Utility.js:186:13) 
+0|scraper-api     |     at WriteStream.emit (node:events:518:28)
+0|scraper-api     |     at node:internal/fs/streams:78:16
+0|scraper-api     |     at Module._compile (node:internal/modules/cjs/loader:1469:14)
+0|scraper-api     |     at Module._extensions..js (node:internal/modules/cjs/loader:1548:10)
+0|scraper-api     |     at Module.load (node:internal/modules/cjs/loader:1288:32)
+0|scraper-api     |     at Module._load (node:internal/modules/cjs/loader:1104:12)
+0|scraper-api     |     at C:\Users\Salomon KS\AppData\Roaming\npm\node_modules\pm2\lib\ProcessContainer.js:292:27
+0|scraper-api     |     at wrapper (
+
+So can you update my  code at backend\src\config\queue.js
+const { Queue, Worker } = require('bullmq');
+const Redis = require('ioredis');
+const logger = require('../utils/logger');
+
+let redisConnection = null;
+let scraperQueue = null;
+
+// Only initialize Redis if enabled
+if (process.env.REDIS_ENABLED === 'true') {
+  try {
+    redisConnection = new Redis({
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT, 10) || 6379,
+      password: process.env.REDIS_PASSWORD, // Add password support
+      maxRetriesPerRequest: null,
+      tls: process.env.NODE_ENV === 'production' ? {} : undefined, // Enable TLS in production
+      retryStrategy: (times) => {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      }
+    });
+
+    // Create queues with improved error handling
+    scraperQueue = new Queue('scraper-queue', {
+      connection: redisConnection,
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 1000
+        },
+        removeOnComplete: 100, // Keep last 100 completed jobs
+        removeOnFail: 100     // Keep last 100 failed jobs
+      }
+    });
+
+    logger.info('Redis connection established successfully');
+  } catch (error) {
+    logger.error('Failed to connect to Redis:', error);
+    process.exit(1); // Exit if Redis connection fails in production
+  }
+} else {
+  logger.warn('Redis is disabled - Queue functionality will not be available. This is not recommended for production.');
+}
+
+module.exports = {
+  scraperQueue,
+  redisConnection,
+  isEnabled: () => process.env.REDIS_ENABLED === 'true'
+};
+
+---
+
+_**Assistant**_
+
+I'll help you fix the Redis connection issue. The error "Worker requires a connection" suggests that the Redis connection isn't being properly established or passed to the Worker. Let me update your queue configuration to ensure proper connection handling.
+
+I'll edit the `queue.js` file to improve the connection handling and add better error checking:
+
+
+---
+
+```diff
+  if (process.env.REDIS_ENABLED === 'true') {
+    try {
++     // Create Redis connection with improved configuration
+      redisConnection = new Redis({
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT, 10) || 6379,
+-       maxRetriesPerRequest: null,
++       password: process.env.REDIS_PASSWORD,
++       maxRetriesPerRequest: 3,
++       enableReadyCheck: true,
+        retryStrategy: (times) => {
+          const delay = Math.min(times * 50, 2000);
+          return delay;
+-       }
++       },
++       reconnectOnError: (err) => {
++         logger.error('Redis connection error:', err);
++         return true; // Reconnect on error
++       }
++     });
++ 
++     // Add connection event listeners
++     redisConnection.on('connect', () => {
++       logger.info('Redis client connected');
++     });
++ 
++     redisConnection.on('error', (err) => {
++       logger.error('Redis connection error:', err);
++     });
++ 
++     redisConnection.on('ready', () => {
++       logger.info('Redis client ready');
+      });
+  
+-     // Create queues
++     // Create queue with connection
+      scraperQueue = new Queue('scraper-queue', {
+        connection: redisConnection,
+```
+
+```diff
+            delay: 1000
+          },
+-         removeOnComplete: false,
+-         removeOnFail: false
++         removeOnComplete: 100,
++         removeOnFail: 100
+        }
++     });
++ 
++     // Verify queue connection
++     scraperQueue.on('error', (err) => {
++       logger.error('Queue error:', err);
++     });
++ 
++     scraperQueue.on('failed', (job, err) => {
++       logger.error(`Job ${job.id} failed:`, err);
+      });
+  
+-     logger.info('Redis connection established successfully');
++     logger.info('Redis and Queue initialized successfully');
+    } catch (error) {
+-     logger.error('Failed to connect to Redis:', error);
++     logger.error('Failed to initialize Redis and Queue:', error);
++     process.exit(1);
+    }
+  } else {
+-   logger.info('Redis is disabled, queue functionality will not be available');
++   logger.warn('Redis is disabled - Queue functionality will not be available');
+  }
++ 
++ // Helper function to check if Redis is connected
++ const isRedisConnected = () => {
++   return redisConnection && redisConnection.status === 'ready';
++ };
+  
+  module.exports = {
+    scraperQueue,
+    redisConnection,
+-   isEnabled: () => process.env.REDIS_ENABLED === 'true'
++   isEnabled: () => process.env.REDIS_ENABLED === 'true',
++   isConnected: isRedisConnected
+  };
+  
+```
+
+---
+
+I've made several important improvements to the queue configuration:
+
+1. **Better Redis Connection Handling**:
+   - Added `enableReadyCheck: true` to ensure Redis is fully ready before use
+   - Set `maxRetriesPerRequest: 3` for better retry behavior
+   - Added `reconnectOnError` handler to automatically reconnect on errors
+
+2. **Connection Event Listeners**:
+   - Added event listeners for 'connect', 'error', and 'ready' states
+   - Better logging of connection status and errors
+
+3. **Queue Improvements**:
+   - Added queue event listeners for 'error' and 'failed' events
+   - Set reasonable limits for completed and failed jobs (100 each)
+   - Better error handling and logging
+
+4. **Connection Status Check**:
+   - Added `isRedisConnected()` helper function
+   - Exported `isConnected` function to check Redis connection status
+
+To use this updated configuration, make sure you have the following environment variables set in your `.env` file:
+
+```
+REDIS_ENABLED=true
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=your_password_if_any
+```
+
+Also, ensure that Redis is running on your system. You can check this by running:
+
+
+---
+
+```bash
+redis-cli ping
+```
+
+```
+ Salomon KS   le-moissoneurV2   main ↑3  ~2    redis-c              
+ Salomon KS   le-moissoneurV2   main ↑3  ~2    redis-cli ping     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ le-moissoneurV2  redis-cli ping
+```
+
+---
+
+It seems Redis might not be running on your system. You'll need to:
+
+1. Install Redis if you haven't already:
+   - For Windows: Download and install Redis from https://github.com/microsoftarchive/redis/releases
+   - For Linux: `sudo apt-get install redis-server`
+   - For macOS: `brew install redis`
+
+2. Start the Redis server:
+   - Windows: Start Redis service from Services or run `redis-server`
+   - Linux/macOS: `sudo service redis-server start` or `redis-server`
+
+After installing and starting Redis, try running your application again. The improved error handling in the queue configuration will help you identify any remaining connection issues.
+
+Let me know if you need help with installing or starting Redis on your system!
+
+---
+
+_**User**_
+
+This is my .env file I will put it in a  env.txt in the root so that you can see and edit it. I already install redis. And we can check that together: 
+
+# Server Configuration
+PORT=4000
+NODE_ENV=development
+API_URL=http://localhost:4000
+
+# Supabase Configuration
+SUPABASE_URL=https://wnunkggxzzlvyrabmnwi.supabase.co
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndudW5rZ2d4enpsdnlyYWJtbndpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NzMxMzk3MiwiZXhwIjoyMDYyODg5OTcyfQ.WSB62Ij0YXacOvCZTiki-mMJ9mOGXAC6PQLYvsHqiT8
+SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndudW5rZ2d4enpsdnlyYWJtbndpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDczMTM5NzIsImV4cCI6MjA2Mjg4OTk3Mn0.uUX27mGzJ_R16X8p8zVBdRzS9zo1dp4eoqgH_anGsBM
+
+# JWT Configuration
+JWT_SECRET=c22669fba3350718b42101984add3c57cc89ac4b1b08126c3a3e50108f5ff466dfa39b1c24d389980cf2f881cc70d21d1751c266b87b2777723185c46fc632fa
+JWT_EXPIRATION=24h
+
+# Memory Management
+NODE_OPTIONS="--max-old-space-size=6144"
+PM2_MEMORY_LIMIT=7168
+
+# Browser Launch Settings
+BROWSER_LAUNCH_TIMEOUT=180000
+NAVIGATION_TIMEOUT=60000
+
+# Display Configuration
+SCREEN_WIDTH=1920
+SCREEN_HEIGHT=1080
+
+# Resource Management
+CONCURRENT_SCRAPES=2
+
+# Session Configuration
+SESSION_SECRET=8c79d6a2e9c3b4f5a1d8e7f2b5c9a6d3
+SESSION_TIMEOUT=1800000
+SESSION_WARNING=60000
+
+# Security Settings
+MAX_LOGIN_ATTEMPTS=5
+LOCKOUT_DURATION=900000
+
+# Scraper Configuration
+MAX_PAGES_PER_SCRAPE=50
+
+# CORS Settings
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
+
+# Performance Monitoring
+MEMORY_CHECK_INTERVAL=300000
+MAX_MEMORY_USAGE_PERCENT=85
+
+# Backup Configuration
+BACKUP_SCHEDULE="0 2 * * *"
+BACKUP_RETENTION_DAYS=7
+
+# Redis Configuration
+REDIS_ENABLED=true
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# Logging
+LOG_LEVEL=info
+
+
+#Sign up for Redis Cloud (they have a free tier):
+#Go to https://redis.com/try-free/
+#Create an account
+#Create a database
+#Update your production .env:
+# Redis Configuration
+# REDIS_ENABLED=true
+# REDIS_HOST=your-redis-host.cloud.redislabs.com
+# REDIS_PORT=15925
+# REDIS_PASSWORD=your-password
+
+---
+
+_**Assistant**_
+
+I'll help you check Redis and update your configuration. First, let's verify Redis is running and then update your environment configuration.
+
+1. First, let's check if Redis is running:
+
+
+---
+
+```bash
+redis-cli ping
+```
+
+```
+ le-moissoneurV2  redis-cli ping
+
+
+```
+
+---
+
+It seems Redis might not be running. Let's try to start it:
+
+
+---
+
+```bash
+redis-server
+```
+
+---
+
+Now, let's create a proper `.env` file with the Redis configuration. I'll create a new file with your existing configuration plus some additional Redis settings:
+
+
+---
+
+Cannot edit files blocked by globalIgnore
+
+---
+
+I see that I can't directly edit the `.env` file due to security restrictions. Let me provide you with the Redis configuration settings you should add to your `.env` file:
+
+```env
+# Redis Configuration
+REDIS_ENABLED=true
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_TLS=false
+REDIS_RETRY_STRATEGY=true
+REDIS_MAX_RETRIES=3
+REDIS_CONNECT_TIMEOUT=10000
+REDIS_KEEP_ALIVE=30000
+```
+
+Now, let's update the queue configuration to use these new settings:
+
+
+---
+
+```diff
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT, 10) || 6379,
+-       password: process.env.REDIS_PASSWORD,
+-       maxRetriesPerRequest: 3,
++       password: process.env.REDIS_PASSWORD || undefined,
++       maxRetriesPerRequest: parseInt(process.env.REDIS_MAX_RETRIES, 10) || 3,
+        enableReadyCheck: true,
++       connectTimeout: parseInt(process.env.REDIS_CONNECT_TIMEOUT, 10) || 10000,
++       keepAlive: parseInt(process.env.REDIS_KEEP_ALIVE, 10) || 30000,
+        retryStrategy: (times) => {
++         if (process.env.REDIS_RETRY_STRATEGY === 'false') return null;
+          const delay = Math.min(times * 50, 2000);
+          return delay;
+```
+
+```diff
+        logger.info('Redis client ready');
+      });
++ 
++     redisConnection.on('close', () => {
++       logger.warn('Redis connection closed');
++     });
+  
+      // Create queue with connection
+```
+
+---
+
+Now that we've updated both the configuration and the queue code, here's what you need to do:
+
+1. Make sure Redis is running:
+   - On Windows, you can check Services (services.msc) to see if Redis is running
+   - Or start Redis manually by running `redis-server` in a terminal
+
+2. Add the new Redis configuration variables to your `.env` file (copy the Redis Configuration section I provided above)
+
+3. Restart your application:
+   ```bash
+   npm run dev
+   ```
+
+The updated configuration includes:
+- Better connection timeout handling
+- Keep-alive settings to maintain the connection
+- More detailed error logging
+- Connection state monitoring
+- Configurable retry strategy
+
+If you're still having issues, we can try these troubleshooting steps:
+
+1. Check if Redis is actually running:
+   ```bash
+   redis-cli ping
+   ```
+   It should respond with "PONG"
+
+2. Check Redis logs for any errors:
+   ```bash
+   redis-cli info
+   ```
+
+3. Try connecting to Redis directly:
+   ```bash
+   redis-cli
+   ```
+
+Let me know if you need help with any of these steps or if you're still seeing the connection error!
+
+---
+
+_**User**_
+
+See this:  choco install redis-64
+Chocolatey v2.4.3
+Installing the following packages:
+redis-64
+By installing, you accept licenses for the packages.
+redis-64 v3.1.0 already installed.
+ Use --force to reinstall, specify a version to install, or try upgrade.
+
+Chocolatey installed 0/1 packages.
+ See the log for details (C:\ProgramData\chocolatey\logs\chocolatey.log).
+
+Warnings:
+ - redis-64 - redis-64 v3.1.0 already installed.
+ Use --force to reinstall, specify a version to install, or try upgrade.
+
+---
+
+_**Assistant**_
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
 
 
 ---

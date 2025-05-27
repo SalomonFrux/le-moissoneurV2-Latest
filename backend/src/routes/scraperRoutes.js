@@ -33,4 +33,23 @@ router.post('/run/:id', verifyHandler(scraperController.runScraper, 'runScraper'
 // Get by ID route last
 router.get('/:id', verifyHandler(scraperController.getScraperById, 'getScraperById'));
 
+// Config versioning and portability endpoints
+router.get('/configs', scraperController.listConfigs);
+router.get('/configs/:id', scraperController.getConfig);
+router.delete('/configs/:id', scraperController.deleteConfig);
+
+// Transformation rules endpoints
+router.get('/:id/transformations', scraperController.getTransformations);
+router.post('/:id/transformations', scraperController.setTransformations);
+
+// Auto-labeling endpoint
+router.post('/auto-label', scraperController.autoLabelField);
+
+// Sharing endpoints
+router.post('/:id/share', scraperController.shareScraper);
+router.get('/shared', scraperController.getSharedScrapers);
+
+// Alerts endpoint
+router.get('/alerts', scraperController.listAlerts);
+
 module.exports = router;

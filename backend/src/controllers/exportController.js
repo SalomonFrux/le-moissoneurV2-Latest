@@ -1,6 +1,6 @@
 const ExcelJS = require('exceljs');
 const { Parser } = require('json2csv');
-const { supabase } = require('../config/supabaseClient');
+const { supabase } = require('../db/supabase');
 
 const fieldMappings = {
   companyName: 'nom',
@@ -37,7 +37,7 @@ const getSelectedFields = (fields) => {
   return selectedFields.join(', ');
 };
 
-const fetchData = async (fields, limit = null) => {
+const fetchData = async (fields, limit = null, jobId = null, scraperId = null) => {
   const selectedFields = getSelectedFields(fields);
   
   if (!selectedFields) {
@@ -45,32 +45,31 @@ const fetchData = async (fields, limit = null) => {
   }
 
   // Add created_at for sorting but don't export it
-  const query = supabase
+  let query = supabase
     .from('scraped_data')
     .select(selectedFields)
     .order('created_at', { ascending: false })
     .not('nom', 'is', null); // Exclude entries without company names
 
+  if (jobId) {
+    query = query.eq('job_id', jobId);
+  }
+  if (scraperId) {
+    query = query.eq('scraper_id', scraperId);
+  }
   if (limit) {
-    query.limit(limit);
+    query = query.limit(limit);
   }
 
   const { data, error } = await query;
-  
   if (error) throw error;
-  
-  if (error) {
-    console.error('Error fetching data:', error);
-    throw error;
-  }
 
   // Format data with French headers
   return data.map(row => {
     const formattedRow = {};
     for (const [dbField, value] of Object.entries(row)) {
       if (frenchLabels[dbField]) {
-        // Only include fields that have French labels
-        formattedRow[frenchLabels[dbField]] = value || ''; // Replace null with empty string
+        formattedRow[frenchLabels[dbField]] = value || '';
       }
     }
     return formattedRow;
@@ -184,8 +183,8 @@ const getPreview = async (req, res) => {
 
 const downloadExport = async (req, res) => {
   try {
-    const { format, fields, fileName } = req.body;
-    const data = await fetchData(fields);
+    const { format, fields, fileName, jobId, scraperId } = req.body;
+    const data = await fetchData(fields, null, jobId, scraperId);
 
     if (format === 'csv') {
       const csv = await generateCsv(data);

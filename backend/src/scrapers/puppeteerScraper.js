@@ -54,7 +54,7 @@ async function puppeteerScraper(url, selectors, scraperId) {
   try {
     browser = await puppeteer.launch(launchOptions);
     logger.info('Puppeteer browser launched successfully.');
-    scraperStatusHandler.updateStatus(scraperId, {
+    scraperStatusHandler.sendStatus(scraperId, {
       status: 'running', currentPage: 0, totalItems: 0, type: 'info', message: 'Browser (Puppeteer) launched successfully'
     });
 
@@ -71,12 +71,21 @@ async function puppeteerScraper(url, selectors, scraperId) {
 
     let currentUrl = url;
     while (hasNextPage && (pageNum <= (parseInt(process.env.MAX_PAGES_PER_SCRAPE, 10) || 50))) {
-      logger.info(`Puppeteer: Scraping page ${pageNum}: ${currentUrl}`);
-      scraperStatusHandler.updateStatus(scraperId, {
-        status: 'running', currentPage: pageNum, totalItems: results.length, type: 'info', message: `Puppeteer: Navigating to page ${pageNum}: ${currentUrl.substring(0,100)}...`
+      logger.info(`Puppeteer: Scraping page ${pageNum}: ${currentUrl || 'URL not defined'}`);
+      scraperStatusHandler.sendStatus(scraperId, {
+        status: 'running', 
+        currentPage: pageNum, 
+        totalItems: results.length, 
+        type: 'info', 
+        message: `Puppeteer: Navigating to page ${pageNum}: ${(currentUrl || 'N/A').substring(0,100)}...`
       });
 
       try {
+        if (!currentUrl) {
+          logger.warn('Puppeteer: currentUrl is undefined, cannot navigate. Ending pagination.');
+          hasNextPage = false;
+          continue;
+        }
         logger.info(`Puppeteer: Attempting page.goto(\'${currentUrl}\')`);
         const response = await page.goto(currentUrl, { waitUntil: 'domcontentloaded' });
         if (response) {
@@ -84,12 +93,12 @@ async function puppeteerScraper(url, selectors, scraperId) {
         } else {
             logger.warn(`Puppeteer: Navigation to ${currentUrl} returned null/undefined response object.`);
         }
-        scraperStatusHandler.updateStatus(scraperId, {
+        scraperStatusHandler.sendStatus(scraperId, {
             status: 'running', currentPage: pageNum, totalItems: results.length, type: 'info', message: `Puppeteer: Page ${pageNum} loaded. Searching for content...`
         });
       } catch (navError) {
         logger.error(`Puppeteer page.goto(\'${currentUrl}\') failed:`, navError);
-        scraperStatusHandler.updateStatus(scraperId, {
+        scraperStatusHandler.sendStatus(scraperId, {
             status: 'error', currentPage: pageNum, totalItems: results.length, type: 'error', message: `Puppeteer: Failed to navigate to ${currentUrl.substring(0,100)}: ${navError.message}`
         });
         throw navError; // Propagate to main catch
@@ -99,7 +108,7 @@ async function puppeteerScraper(url, selectors, scraperId) {
       if (selectors.dropdownClick) {
         const dropdowns = await page.$$(selectors.dropdownClick);
         logger.info(`Found ${dropdowns.length} dropdown elements to click`);
-        scraperStatusHandler.updateStatus(scraperId, {
+        scraperStatusHandler.sendStatus(scraperId, {
           status: 'running', currentPage: pageNum, totalItems: results.length, type: 'info', message: `Puppeteer: Found ${dropdowns.length} dropdown elements to expand`
         });
 
@@ -109,7 +118,7 @@ async function puppeteerScraper(url, selectors, scraperId) {
             await page.waitForTimeout(200);
           } catch (e) {
             logger.warn(`Puppeteer: Failed to click dropdown: ${e.message}`);
-            scraperStatusHandler.updateStatus(scraperId, {
+            scraperStatusHandler.sendStatus(scraperId, {
               status: 'running', currentPage: pageNum, totalItems: results.length, type: 'warning', message: `Puppeteer: Failed to click a dropdown element: ${e.message}`
             });
           }
@@ -159,12 +168,12 @@ async function puppeteerScraper(url, selectors, scraperId) {
         logger.info(`Puppeteer: Found ${pageResults.length} results on page ${pageNum}`);
         results = results.concat(pageResults);
 
-        scraperStatusHandler.updateStatus(scraperId, {
+        scraperStatusHandler.sendStatus(scraperId, {
           status: 'running', currentPage: pageNum, totalItems: results.length, type: 'success', message: `Puppeteer: Found ${pageResults.length} items on page ${pageNum}. Total: ${results.length}`
         });
       } catch (e) {
         logger.error(`Puppeteer: Main selector ${selectors.main} not found on ${currentUrl}: ${e.message}`);
-        scraperStatusHandler.updateStatus(scraperId, {
+        scraperStatusHandler.sendStatus(scraperId, {
           status: 'error', currentPage: pageNum, totalItems: results.length, type: 'info', message: `Puppeteer: Main content not found on page ${pageNum}.`
         });
         hasNextPage = false; 
@@ -176,9 +185,15 @@ async function puppeteerScraper(url, selectors, scraperId) {
         try {
             const nextPageLink = await page.$(selectors.pagination);
             if (nextPageLink) {
-                currentUrl = await page.evaluate(el => el.href, nextPageLink); // Make sure this is correct for Puppeteer context
-                logger.info(`Puppeteer: Found next page link: ${currentUrl}`);
-                pageNum++;
+                const nextHref = await page.evaluate(el => el.href, nextPageLink);
+                if (nextHref && typeof nextHref === 'string') {
+                    currentUrl = nextHref;
+                    logger.info(`Puppeteer: Found next page link: ${currentUrl}`);
+                    pageNum++;
+                } else {
+                    logger.info('Puppeteer: Next page link found, but href is invalid or missing. Ending pagination.');
+                    hasNextPage = false;
+                }
             } else {
                 logger.info('Puppeteer: No next page link found.');
                 hasNextPage = false;
@@ -194,14 +209,14 @@ async function puppeteerScraper(url, selectors, scraperId) {
     // ... (end of while loop)
 
     logger.info('Puppeteer: Scraping loop completed.');
-    scraperStatusHandler.updateStatus(scraperId, {
+    scraperStatusHandler.sendStatus(scraperId, {
       status: 'completed', currentPage: pageNum -1, totalItems: results.length, type: 'success', message: 'Scraping process finished by Puppeteer.'
     });
     return results;
 
   } catch (error) {
     logger.error(`Puppeteer scraper failed: ${error.message}. Stack: ${error.stack}`);
-    scraperStatusHandler.updateStatus(scraperId, {
+    scraperStatusHandler.sendStatus(scraperId, {
       status: 'error',
       currentPage: pageNum,
       totalItems: results.length,

@@ -34,6 +34,11 @@ import { ScraperStatus } from '@/components/scraper/ScraperStatus';
 import { ScraperStatus as ScraperStatusType } from '@/components/scraper/types';
 import { ScraperProgress } from '@/components/scraper/ScraperProgress';
 
+interface SelectorObject {
+  type: 'css' | 'xpath';
+  value: string;
+}
+
 interface ScraperData {
   id: string;
   name: string;
@@ -42,16 +47,10 @@ interface ScraperData {
   last_run?: string;
   dataCount: number;
   selectors: {
-    main: string;
-    pagination?: string;
-    dropdownClick?: string;
-    child?: Record<string, any>;
-    name: string;
-    email: string;
-    phone: string;
-    address: string;
-    website: string;
-    sector: string;
+    main: SelectorObject[];
+    pagination?: SelectorObject[];
+    dropdownClick?: SelectorObject[];
+    child?: Record<string, SelectorObject[]>;
   };
   frequency: 'daily' | 'weekly' | 'monthly' | 'manual';
   country: string;
@@ -82,10 +81,10 @@ interface ScrapedDataGroup {
 interface ScraperConfig {
   name: string;
   source: string;
-  selector: string;
-  paginationSelector: string;
-  dropdownClickSelector: string;
-  childSelectors: string;
+  mainSelectors: SelectorObject[];
+  paginationSelectors: SelectorObject[];
+  dropdownClickSelectors: SelectorObject[];
+  childSelectors: Record<string, SelectorObject[]>;
   engine: 'playwright' | 'puppeteer';
   frequency: 'daily' | 'weekly' | 'monthly' | 'manual';
   country: string;
@@ -129,10 +128,17 @@ export function Dashboard() {
   const [formData, setFormData] = useState<ScraperConfig>({
     name: '',
     source: '',
-    selector: '',
-    paginationSelector: '',
-    dropdownClickSelector: '',
-    childSelectors: '',
+    mainSelectors: [{ type: 'css', value: '' }],
+    paginationSelectors: [],
+    dropdownClickSelectors: [],
+    childSelectors: {
+      name: [{ type: 'css', value: '' }],
+      phone: [],
+      email: [],
+      website: [],
+      address: [],
+      sector: [],
+    },
     engine: 'playwright',
     frequency: 'manual',
     country: '',
@@ -323,16 +329,16 @@ export function Dashboard() {
       ...scraper,
       dataCount: scraper.data_count || 0,
       selectors: {
-        main: scraper.selectors?.main || '',
-        pagination: scraper.selectors?.pagination,
-        dropdownClick: scraper.selectors?.dropdownClick,
-        child: scraper.selectors?.child,
-        name: scraper.selectors?.name || '',
-        email: scraper.selectors?.email || '',
-        phone: scraper.selectors?.phone || '',
-        address: scraper.selectors?.address || '',
-        website: scraper.selectors?.website || '',
-        sector: scraper.selectors?.sector || ''
+        main: scraper.selectors?.main || [],
+        pagination: scraper.selectors?.pagination || [],
+        dropdownClick: scraper.selectors?.dropdownClick || [],
+        child: scraper.selectors?.child || {},
+        name: scraper.selectors?.name || [],
+        email: scraper.selectors?.email || [],
+        phone: scraper.selectors?.phone || [],
+        address: scraper.selectors?.address || [],
+        website: scraper.selectors?.website || [],
+        sector: scraper.selectors?.sector || []
       },
       type: scraper.type || 'playwright'
     }));

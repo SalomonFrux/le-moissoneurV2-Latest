@@ -1,6 +1,7 @@
 const { supabase } = require('../db/supabase');
 const logger = require('../utils/logger');
-const webSocketManager = require('../websocket/webSocketManager');
+// const webSocketManager = require('../websocket/webSocketManager'); // Removed
+const scraperStatusHandler = require('../websocket/scraperStatusHandler'); // Added
 
 // Alert severity levels
 const SEVERITY = {
@@ -61,14 +62,27 @@ class AlertingService {
         if (error) throw error;
       }
 
-      // Send real-time notification
-      if (notificationChannels.includes('websocket')) {
-        webSocketManager.emitAlert(scraperId, {
+      // Send real-time notification via scraperStatusHandler
+      if (notificationChannels.includes('websocket') && scraperStatusHandler.io) {
+        const alertPayload = {
+          id: alert.id, // Assuming supabase returns the id after insert, or generate one before
+          scraperId: scraperId, // Keep scraperId for room targeting
           severity,
           category,
           message,
-          data
-        });
+          data,
+          created_at: alert.created_at
+        };
+        if (scraperId) {
+          scraperStatusHandler.io.to(`scraper-${scraperId}`).emit('new-alert', alertPayload);
+          logger.info(`WebSocket alert sent to room scraper-${scraperId}`);
+        } else {
+          // If no scraperId, maybe emit to a general admin room or all connected clients
+          // For now, let's log if scraperId is missing for an alert destined for WebSocket
+          logger.warn('Cannot send WebSocket alert: scraperId is missing and no general room defined.');
+        }
+      } else if (notificationChannels.includes('websocket') && !scraperStatusHandler.io) {
+        logger.warn('Cannot send WebSocket alert: Socket.IO not initialized in scraperStatusHandler.');
       }
 
       logger.info(`Alert created: [${severity}] ${message}`);

@@ -47,6 +47,12 @@ export interface Company {
   updated_at: string;
 }
 
+export type SelectorType = 'css' | 'xpath';
+export interface SelectorObject {
+  type: SelectorType;
+  value: string;
+}
+
 export interface Scraper {
   id: string;
   name: string;
@@ -57,16 +63,10 @@ export interface Scraper {
   data_count: number;
   last_run?: string;
   selectors: {
-    main: string;
-    pagination?: string;
-    dropdownClick?: string;
-    child?: Record<string, any>;
-    name: string;
-    email: string;
-    phone: string;
-    address: string;
-    website: string;
-    sector: string;
+    main: SelectorObject[];
+    pagination?: SelectorObject[];
+    dropdownClick?: SelectorObject[];
+    child?: Record<string, SelectorObject[]>;
   };
   type?: 'playwright' | 'puppeteer';
 }
@@ -77,13 +77,10 @@ export interface CreateScraperData {
   country: string;
   frequency: string;
   selectors: {
-    main: string;
-    name: string;
-    email: string;
-    phone: string;
-    address: string;
-    website: string;
-    sector: string;
+    main: SelectorObject[];
+    pagination?: SelectorObject[];
+    dropdownClick?: SelectorObject[];
+    child?: Record<string, SelectorObject[]>;
   };
 }
 

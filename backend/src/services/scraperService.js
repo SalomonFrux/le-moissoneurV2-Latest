@@ -7,6 +7,7 @@ const { genericScraper } = require('../scrapers/genericScraper');
 const { newsPortalScraper } = require('../scrapers/newsPortalScraper');
 const { playwrightScraper } = require('../scrapers/playwrightScraper');
 const { puppeteerScraper } = require('../scrapers/puppeteerScraper');
+const dataTransformationService = require('./dataTransformationService');
 
 // Configuration
 const MAX_RETRIES = 3;
@@ -133,12 +134,36 @@ async function createBrowserInstance() {
   }
 }
 
-async function executeScraper(scraper) {
+async function executeScraper(scraper, jobId = null) {
   logger.info(`Starting scraper: ${scraper.name} (${scraper.id})`);
   
   let browser;
   let scrapedData = [];
-  
+  const runId = jobId || `manual-${Date.now()}`;
+  let jobRecordId = null;
+  const startedAt = new Date().toISOString();
+
+  // Insert job run record at start
+  try {
+    const { data: jobInsert, error: jobInsertError } = await supabase
+      .from('scraping_jobs')
+      .insert({
+        scraper_id: scraper.id,
+        job_id: runId,
+        status: 'running',
+        started_at: startedAt
+      })
+      .select('id')
+      .single();
+    if (jobInsertError) {
+      logger.error(`Failed to insert scraping_jobs record: ${jobInsertError.message}`);
+    } else {
+      jobRecordId = jobInsert.id;
+    }
+  } catch (e) {
+    logger.error('Exception inserting scraping_jobs record:', e);
+  }
+
   // Helper function to extract data using regex patterns
   const extractInfo = (text, pattern) => {
     if (!text) return null;
@@ -184,7 +209,7 @@ async function executeScraper(scraper) {
           
           // Send status update about fallback
           const scraperStatusHandler = require('../websocket/scraperStatusHandler');
-          scraperStatusHandler.updateStatus(scraper.id, {
+          scraperStatusHandler.sendStatus(scraper.id, {
             status: 'running',
             currentPage: 0,
             totalItems: 0,
@@ -387,6 +412,27 @@ async function executeScraper(scraper) {
           .eq('id', scraper.id);
       });
 
+      // Update job run record on success
+      try {
+        await supabase
+          .from('scraping_jobs')
+          .update({
+            status: 'completed',
+            total_items: dataCount,
+            total_pages: 1, // TODO: update if multi-page
+            completed_at: new Date().toISOString()
+          })
+          .eq('job_id', runId);
+      } catch (e) {
+        logger.error('Failed to update scraping_jobs record on success:', e);
+      }
+
+      // Apply transformation rules if defined
+      const transformations = scraper.config?.transformations || [];
+      if (transformations.length > 0) {
+        scrapedData = scrapedData.map(item => dataTransformationService.applyTransformations(item, transformations));
+      }
+
       logger.info(`Stored ${dataToInsert.length} items for scraper ${scraper.id}. Total items: ${dataCount}`);
     } else {
       logger.warn(`No data scraped for ${scraper.id}`);
@@ -416,6 +462,20 @@ async function executeScraper(scraper) {
         })
         .eq('id', scraper.id);
     });
+    
+    // Update job run record on error
+    try {
+      await supabase
+        .from('scraping_jobs')
+        .update({
+          status: 'error',
+          error_message: error.message,
+          completed_at: new Date().toISOString()
+        })
+        .eq('job_id', runId);
+    } catch (e) {
+      logger.error('Failed to update scraping_jobs record on error:', e);
+    }
     
     throw error;
   } finally {
