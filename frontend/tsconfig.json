@@ -18,11 +18,13 @@
     "skipLibCheck": true,
     "allowJs": true,
     "noUnusedLocals": false,
-    "strictNullChecks": false
+    "strictNullChecks": false,
+    "outDir": "./dist"
   },
   "include": [
-    "src/**/*.ts",
+    "src/**/*",
     "src/**/*.tsx",
-    "src/**/*.d.ts"  // This includes your declaration files
-  ]
+    "src/**/*.d.ts"
+  ],
+  "exclude": ["node_modules", "dist", "../backend/**/*"]
 }

@@ -11,6 +11,27 @@ if (!process.env.JWT_SECRET) {
 
 class AuthController {
   /**
+   * Middleware to verify JWT token
+   */
+  verifyToken(req, res, next) {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded;
+      next();
+    } catch (error) {
+      logger.error('Token verification error:', error);
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+  }
+
+  /**
    * Handle user login with enhanced security
    */
   async login(req, res) {
@@ -186,4 +207,13 @@ class AuthController {
   }
 }
 
-module.exports = new AuthController();
+// Create an instance of the controller
+const authController = new AuthController();
+
+// Export both the instance and the middleware function
+module.exports = {
+  ...authController,
+  verifyToken: authController.verifyToken.bind(authController),
+  login: authController.login.bind(authController),
+  generateTestHash: authController.generateTestHash?.bind(authController)
+};

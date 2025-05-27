@@ -1,9 +1,30 @@
-const { server, io } = require('./server');
+const { server } = require('./server');
 const logger = require('./utils/logger');
+const supabase = require('./config/supabaseClient');
 
 const PORT = process.env.PORT || 4000;
 
-// Global error handling for uncaught exceptions
+// Test Supabase connection
+logger.info('Supabase URL:', { metadata: { url: process.env.SUPABASE_URL }});
+logger.info('Supabase Key:', { metadata: { key: 'key-exists' }});
+
+console.log('Testing Supabase connection...');
+supabase.from('users').select('*', { count: 'exact' }).limit(1)
+  .then(() => {
+    console.log('Successfully connected to Supabase!');
+    
+    // Start server after successful DB connection
+    server.listen(PORT, () => {
+      logger.info(`Server is running on port ${PORT}`);
+      logger.info(`Environment: ${process.env.NODE_ENV}`);
+    });
+  })
+  .catch(err => {
+    console.error('Failed to connect to Supabase:', err.message);
+    process.exit(1);
+  });
+
+// Global error handling
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught Exception:', error);
   process.exit(1);
@@ -36,10 +57,4 @@ server.on('error', (error) => {
     default:
       throw error;
   }
-});
-
-// Start the server
-server.listen(PORT, () => {
-  logger.info(`HTTP Server is running on port ${PORT}`);
-  logger.info(`Socket.IO server is running on port ${PORT}`);
 });

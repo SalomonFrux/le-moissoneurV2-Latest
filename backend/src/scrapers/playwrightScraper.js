@@ -83,7 +83,7 @@ async function playwrightScraper(url, config, scraperId) {
     startTime: Date.now(),
     totalRequests: 0,
     errorCount: 0,
-    404Count: 0,
+    notFoundCount: 0,
     requestsPerSecond: 0,
     errorRate: 0
   };

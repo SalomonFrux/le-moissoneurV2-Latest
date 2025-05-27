@@ -24,3 +24,5 @@ const performanceMonitor = (req, res, next) => {
 
     next();
 };
+
+module.exports = performanceMonitor;

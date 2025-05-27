@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { 
   Card, 
   CardContent, 
@@ -26,7 +27,6 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import axios from 'axios';
 import { scraperStatusService } from '@/services/scraperStatusService';
 import { ScraperStatus } from '@/components/scraper/types';
 import { ScraperProgress } from '@/components/scraper/ScraperProgress';
@@ -68,6 +68,14 @@ interface ScraperCardProps {
   onDeleteScraper?: (id: string) => void;
   showEditOptions?: boolean;
   showViewData?: boolean;
+}
+
+interface AxiosErrorResponse {
+  response?: {
+    status?: number;
+    data?: unknown;
+    headers?: unknown;
+  };
 }
 
 export function ScrapersPage() {
@@ -138,15 +146,15 @@ export function ScrapersPage() {
     try {
       setLoading(true);
       const data = await dataService.getAllScrapers();
-      //console.log('Fetched scrapers:', data);
       setScrapers(data);
-    } catch (error) {
-      console.error('Error fetching scrapers:', error);
-      if (axios.isAxiosError(error)) {
+    } catch (err) {
+      console.error('Error fetching scrapers:', err);
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as AxiosErrorResponse;
         console.error('Axios error details:', {
-          status: error.response?.status,
-          data: error.response?.data,
-          headers: error.response?.headers
+          status: axiosError.response?.status,
+          data: axiosError.response?.data,
+          headers: axiosError.response?.headers
         });
       }
       toast.error('Erreur lors du chargement des scrapers');
@@ -458,8 +466,6 @@ export function ScrapersPage() {
         scraper_id: scraperId
       });
       
-    //  console.log('View data response:', response);
-      
       setSelectedScraperId(scraperId);
       setScrapedDataResponse(response);
       
@@ -481,13 +487,14 @@ export function ScrapersPage() {
           });
         }
       }
-    } catch (error) {
-      console.error('Error loading data:', error);
-      if (axios.isAxiosError(error)) {
+    } catch (err) {
+      console.error('Error loading data:', err);
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as AxiosErrorResponse;
         console.error('Axios error details:', {
-          status: error.response?.status,
-          data: error.response?.data,
-          headers: error.response?.headers
+          status: axiosError.response?.status,
+          data: axiosError.response?.data,
+          headers: axiosError.response?.headers
         });
       }
       toast.error('Erreur lors du chargement des données');

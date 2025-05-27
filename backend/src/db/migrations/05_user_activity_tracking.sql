@@ -22,21 +22,31 @@ CREATE INDEX IF NOT EXISTS idx_user_activities_resource ON user_activities(resou
 CREATE INDEX IF NOT EXISTS idx_user_activities_timestamp ON user_activities(timestamp);
 
 -- User session tracking
-CREATE TABLE IF NOT EXISTS user_sessions (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES auth.users(id),
-    session_token VARCHAR(255) NOT NULL,
-    ip_address VARCHAR(45),
-    user_agent TEXT,
-    last_active TIMESTAMPTZ DEFAULT NOW(),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL,
-    is_active BOOLEAN DEFAULT true,
-    CONSTRAINT fk_user_sessions_user FOREIGN KEY (user_id)
-        REFERENCES auth.users(id) ON DELETE CASCADE
-);
+DO $$ 
+BEGIN
+    -- Drop the existing table if it exists
+    DROP TABLE IF EXISTS user_sessions CASCADE;
+    
+    -- Create the table with the correct structure
+    CREATE TABLE user_sessions (
+        id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+        user_id UUID NOT NULL REFERENCES auth.users(id),
+        token_hash VARCHAR(128) NOT NULL,
+        ip_address VARCHAR(45),
+        user_agent TEXT,
+        last_active TIMESTAMPTZ DEFAULT NOW(),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        expires_at TIMESTAMPTZ NOT NULL,
+        is_active BOOLEAN DEFAULT true,
+        revoked_at TIMESTAMPTZ,
+        revocation_reason VARCHAR(50),
+        CONSTRAINT fk_user_sessions_user FOREIGN KEY (user_id)
+            REFERENCES auth.users(id) ON DELETE CASCADE
+    );
+END $$;
 
-CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(session_token);
+-- Create indices for user_sessions
+CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(token_hash);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_active ON user_sessions(is_active);
 

@@ -141,7 +141,7 @@ class SecurityService {
   detectSuspiciousActivity(metrics) {
     const suspicious = {
       highFrequency: metrics.requestsPerSecond > 10,
-      unusual404s: metrics.404Count > metrics.totalRequests * 0.2,
+      unusual404s: metrics.notFoundCount > metrics.totalRequests * 0.2,
       highErrorRate: metrics.errorRate > 0.3,
       blacklistedIPs: metrics.clientIp && this.blacklist.has(metrics.clientIp)
     };

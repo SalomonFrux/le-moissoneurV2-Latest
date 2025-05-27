@@ -159,13 +159,13 @@ export function DataPage() {
   }, [fetchData]);
 
   // Debounced search function
-  const debouncedSearch = useCallback(
-    debounce((value: string) => {
-      setFilters(prev => ({ ...prev, search: value }));
+  const debouncedSearch = useCallback((value: string) => {
+    const debouncedFn = debounce((searchValue: string) => {
+      setFilters(prev => ({ ...prev, search: searchValue }));
       setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page on search
-    }, 300),
-    []
-  );
+    }, 300);
+    debouncedFn(value);
+  }, [setFilters, setPagination]);
 
   // Handle search input change
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -355,10 +355,10 @@ export function DataPage() {
 
       toast.success(`Export CSV terminé (${allData.length} entrées)`);
     } catch (error) {
-      console.error('Export error:', error);
-      if (axios.isAxiosError(error)) {
+      console.error('Export error:', error);      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { error?: string } } };
         toast.error(
-          error.response?.data?.error || 
+          axiosError.response?.data?.error || 
           "Erreur lors de l'exportation des données"
         );
       } else {
@@ -884,7 +884,7 @@ export function DataPage() {
 }
 
 // Debounce utility function
-function debounce<T extends (...args: any[]) => any>(
+function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {

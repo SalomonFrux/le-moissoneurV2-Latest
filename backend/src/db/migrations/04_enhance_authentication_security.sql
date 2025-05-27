@@ -1,16 +1,16 @@
 -- Authentication and Security Tables
 
 -- Enhanced Users Table
-ALTER TABLE users ADD COLUMN IF NOT EXISTS
-    password_hash VARCHAR(128),
-    password_salt VARCHAR(32),
-    failed_attempts INTEGER DEFAULT 0,
-    locked_until TIMESTAMPTZ,
-    last_login TIMESTAMPTZ,
-    require_password_change BOOLEAN DEFAULT false,
-    last_password_change TIMESTAMPTZ,
-    two_factor_enabled BOOLEAN DEFAULT false,
-    two_factor_secret VARCHAR(32);
+ALTER TABLE users 
+    ADD COLUMN IF NOT EXISTS password_hash VARCHAR(128),
+    ADD COLUMN IF NOT EXISTS password_salt VARCHAR(32),
+    ADD COLUMN IF NOT EXISTS failed_attempts INTEGER DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS require_password_change BOOLEAN DEFAULT false,
+    ADD COLUMN IF NOT EXISTS last_password_change TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN DEFAULT false,
+    ADD COLUMN IF NOT EXISTS two_factor_secret VARCHAR(32);
 
 -- User Permissions Table
 CREATE TABLE IF NOT EXISTS user_permissions (

@@ -12,6 +12,10 @@ SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 JWT_SECRET=c22669fba3350718b42101984add3c57cc89ac4b1b08126c3a3e50108f5ff466dfa39b1c24d389980cf2f881cc70d21d1751c266b87b2777723185c46fc632fa
 JWT_EXPIRATION=24h
 
+# Browser Configuration
+PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 # Memory Management
 NODE_OPTIONS="--max-old-space-size=6144"
 PM2_MEMORY_LIMIT=7168
@@ -21,6 +25,7 @@ BROWSER_LAUNCH_TIMEOUT=180000
 NAVIGATION_TIMEOUT=60000
 
 # Display Configuration
+DISPLAY=:99                              # Virtual display for Xvfb
 SCREEN_WIDTH=1920
 SCREEN_HEIGHT=1080
 
@@ -50,22 +55,11 @@ MAX_MEMORY_USAGE_PERCENT=85
 BACKUP_SCHEDULE="0 2 * * *"
 BACKUP_RETENTION_DAYS=7
 
-# Redis Configuration
-REDIS_ENABLED=true
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
 # Logging
 LOG_LEVEL=info
 
+# Supabase Configuration
+#SUPABASE_URL=https://rbqkvzdzobxbnkjuprhx.supabase.co
+#SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicWt2emR6b2J4Ym5ranVwcmh4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTk0Njg5NSwiZXhwIjoyMDYxNTIyODk1fQ.pj0cT5bS6HH7hcDOEaDYLJOsqrz5mBY7E-fLhfiZ-d4
+#SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicWt2emR6b2J4Ym5ranVwcmh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU5NDY4OTUsImV4cCI6MjA2MTUyMjg5NX0.RjSLzk36i3T1oEcoFZ4rS1UsJ3PpBZcVHQWqectUJOY
 
-#Sign up for Redis Cloud (they have a free tier):
-#Go to https://redis.com/try-free/
-#Create an account
-#Create a database
-#Update your production .env:
-# Redis Configuration
-# REDIS_ENABLED=true
-# REDIS_HOST=your-redis-host.cloud.redislabs.com
-# REDIS_PORT=15925
-# REDIS_PASSWORD=your-password
