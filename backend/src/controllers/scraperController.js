@@ -201,7 +201,7 @@ async function getScraperById(req, res, next) {
  */
 async function createScraper(req, res, next) {
   try {
-    const { name, source, selectors, frequency, type, country } = req.body;
+    const { name, source, selectors, frequency, type, country, paginationConfig, ...rest } = req.body;
 
     if (!name || !source) {
       return res.status(400).json({ 
@@ -209,12 +209,18 @@ async function createScraper(req, res, next) {
       });
     }
 
+    // Merge paginationConfig into selectors.pagination
+    const selectorsWithPagination = {
+      ...selectors,
+      pagination: paginationConfig || selectors?.pagination || { type: 'nextButton', selectors: [{ type: 'css', value: '' }], maxPages: 20 }
+    };
+
     const { data, error } = await supabase
       .from('scrapers')
       .insert([{ 
         name, 
         source,
-        selectors,
+        selectors: selectorsWithPagination,
         frequency: frequency || 'manual',
         status: 'idle',
         data_count: 0,
@@ -431,7 +437,7 @@ const exportToPdf = async (req, res) => {
 async function updateScraper(req, res, next) {
   try {
     const { id } = req.params;
-    const { name, source, selectors, frequency, type, country } = req.body;
+    const { name, source, selectors, frequency, type, country, paginationConfig, ...rest } = req.body;
 
     // First check if the scraper exists
     const { data: existingScraper, error: fetchError } = await supabase
@@ -448,13 +454,19 @@ async function updateScraper(req, res, next) {
     // Increment version
     const newVersion = (existingScraper.version || 1) + 1;
 
+    // Merge paginationConfig into selectors.pagination
+    const selectorsWithPagination = {
+      ...selectors,
+      pagination: paginationConfig || selectors?.pagination || { type: 'nextButton', selectors: [{ type: 'css', value: '' }], maxPages: 20 }
+    };
+
     // Update the scraper
     const { data, error } = await supabase
       .from('scrapers')
       .update({ 
         name, 
         source,
-        selectors,
+        selectors: selectorsWithPagination,
         frequency: frequency || existingScraper.frequency,
         type: type || existingScraper.type,
         country: country || existingScraper.country,
@@ -730,6 +742,26 @@ async function listAlerts(req, res) {
   }
 }
 
+// Add after getScraperData or near other scraper endpoints:
+async function getJobHistory(req, res) {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('scraping_jobs')
+      .select('id, job_id, status, total_pages, total_items, error_message, started_at, completed_at')
+      .eq('scraper_id', id)
+      .order('started_at', { ascending: false });
+    if (error) {
+      logger.error(`Error fetching job history for scraper ${id}: ${error.message}`);
+      return res.status(500).json({ error: error.message });
+    }
+    res.json(data);
+  } catch (error) {
+    logger.error(`Error in getJobHistory: ${error.message}`);
+    res.status(500).json({ error: error.message });
+  }
+}
+
 // Update the exports to include debugScraperQueries
 module.exports = {
   getAllScrapers,
@@ -753,5 +785,6 @@ module.exports = {
   autoLabelField,
   shareScraper,
   getSharedScrapers,
-  listAlerts
+  listAlerts,
+  getJobHistory
 };

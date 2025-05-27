@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Code, Save, RefreshCw, Search, Filter, MoreVertical, Globe, Mail, LinkIcon } from 'lucide-react';
 import { ScraperCard } from './ScraperCard';
 import { toast } from 'sonner';
-import { getAllScrapers, runScraper, getScraperStatus, createScraper, deleteScraper, updateScraper } from '@/services/scraperService';
+import { getAllScrapers, runScraper, getScraperStatus, createScraper, deleteScraper, updateScraper, getTransformations, setTransformations, shareScraper, getSharedScrapers, listAlerts, listConfigs, getConfig, deleteConfig, testSelector, getJobHistory, exportScraperDataAsCsv } from '@/services/scraperService';
 import { dataService, type Scraper, type ScrapedEntry, type PaginatedResponse, type FetchDataParams, type SelectorObject, type SelectorType } from '@/services/dataService';
 import { 
   DropdownMenu,
@@ -40,6 +40,12 @@ interface ScraperConfig {
   name: string;
   source: string;
   mainSelectors: SelectorObject[];
+  paginationConfig: {
+    type: 'nextButton' | 'numberLinks' | 'loadMore';
+    selectors: SelectorObject[];
+    maxPages: number;
+    waitAfterClick?: number;
+  };
   paginationSelectors: SelectorObject[];
   dropdownClickSelectors: SelectorObject[];
   childSelectors: Record<string, SelectorObject[]>;
@@ -69,6 +75,8 @@ interface ScraperCardProps {
   onDeleteScraper?: (id: string) => void;
   showEditOptions?: boolean;
   showViewData?: boolean;
+  onShareScraper: (scraper: Scraper) => void;
+  onViewAlerts: (scraper: Scraper) => void;
 }
 
 interface AxiosErrorResponse {
@@ -77,6 +85,33 @@ interface AxiosErrorResponse {
     data?: unknown;
     headers?: unknown;
   };
+}
+
+// Add type for selector test result
+interface SelectorTestResult {
+  matches: number;
+  samples: string[];
+}
+
+// Add type for job history entries
+interface JobHistoryEntry {
+  id: string;
+  job_id: string;
+  status: string;
+  total_pages: number;
+  total_items: number;
+  error_message: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+// Add at the top, after imports
+interface ConfigSummary {
+  id: string;
+  name: string;
+  version: number;
+  updated_at?: string;
+  _details?: unknown;
 }
 
 export function ScrapersPage() {
@@ -88,6 +123,12 @@ export function ScrapersPage() {
     name: '',
     source: '',
     mainSelectors: [{ type: 'css', value: '' }],
+    paginationConfig: {
+      type: 'nextButton',
+      selectors: [{ type: 'css', value: '' }],
+      maxPages: 20,
+      waitAfterClick: 1000
+    },
     paginationSelectors: [],
     dropdownClickSelectors: [],
     childSelectors: {
@@ -139,7 +180,25 @@ export function ScrapersPage() {
     idx: number;
   }>({ open: false, selectorType: '', selectorValue: '', field: '', idx: -1 });
   const [testInput, setTestInput] = useState('');
-  const [testResult, setTestResult] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<SelectorTestResult | null>(null);
+  const [transformations, setTransformationsState] = useState<Array<{ field: string; type: string; [key: string]: unknown }>>([]);
+  const [showTransformDialog, setShowTransformDialog] = useState(false);
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editingTransform, setEditingTransform] = useState<Record<string, unknown>>({});
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [shareTargetScraper, setShareTargetScraper] = useState<Scraper | null>(null);
+  const [shareUserId, setShareUserId] = useState('');
+  const [sharedScrapers, setSharedScrapers] = useState<Scraper[]>([]);
+  const [showSharedDialog, setShowSharedDialog] = useState(false);
+  const [alerts, setAlerts] = useState<Record<string, unknown>[]>([]);
+  const [showAlertsDialog, setShowAlertsDialog] = useState(false);
+  const [selectedAlertScraper, setSelectedAlertScraper] = useState<Scraper | null>(null);
+  const [configs, setConfigs] = useState<Record<string, unknown>[]>([]);
+  const [showConfigsDialog, setShowConfigsDialog] = useState(false);
+  const [testLoading, setTestLoading] = useState(false);
+  const [testError, setTestError] = useState<string | null>(null);
+  const [jobHistory, setJobHistory] = useState<JobHistoryEntry[]>([]);
+  const [jobHistoryLoading, setJobHistoryLoading] = useState(false);
 
   useEffect(() => {
     const activeScrapers = Object.entries(scraperStatus).find(([_, status]) => status.status === 'running');
@@ -251,7 +310,18 @@ export function ScrapersPage() {
     }));
   };
 
-  const handleInputChange = (field: string, value: string | boolean) => {
+  const handleInputChange = (field: string, value: string | boolean | number) => {
+    if (field.startsWith('paginationConfig.')) {
+      const subField = field.split('.')[1];
+      setFormData(prev => ({
+        ...prev,
+        paginationConfig: {
+          ...prev.paginationConfig,
+          [subField]: value
+        }
+      }));
+      return;
+    }
     if (field.startsWith('phase1.')) {
       const subField = field.split('.')[1];
       setFormData(prev => ({
@@ -324,6 +394,12 @@ export function ScrapersPage() {
         name: '',
         source: '',
         mainSelectors: [{ type: 'css', value: '' }],
+        paginationConfig: {
+          type: 'nextButton',
+          selectors: [{ type: 'css', value: '' }],
+          maxPages: 20,
+          waitAfterClick: 1000
+        },
         paginationSelectors: [],
         dropdownClickSelectors: [],
         childSelectors: {
@@ -366,18 +442,24 @@ export function ScrapersPage() {
       name: scraper.name,
       source: scraper.source,
       mainSelectors: Array.isArray(scraper.selectors?.main)
-        ? scraper.selectors.main.map(s => typeof s === 'string' ? { type: 'css', value: s } : { type: s.type ?? 'css', value: String(s.value ?? '') })
+        ? scraper.selectors.main.map(s => typeof s === 'string' ? { type: 'css', value: s } : { type: (s.type ?? 'css') as SelectorType, value: String(s.value ?? '') })
         : typeof scraper.selectors?.main === 'string' && scraper.selectors.main
           ? [{ type: 'css', value: scraper.selectors.main }]
           : [{ type: 'css', value: '' }],
-      paginationSelectors: Array.isArray(scraper.selectors?.pagination)
-        ? scraper.selectors.pagination.map(s => typeof s === 'string' ? { type: 'css', value: s } : { type: s.type ?? 'css', value: String(s.value ?? '') })
-        : typeof scraper.selectors?.pagination === 'string' && scraper.selectors.pagination
-          ? [{ type: 'css', value: scraper.selectors.pagination }]
-          : [],
+      paginationConfig: {
+        type: 'nextButton',
+        selectors: Array.isArray(scraper.selectors?.pagination)
+          ? scraper.selectors.pagination.map(s => typeof s === 'string' ? { type: 'css', value: s } : { type: (s.type ?? 'css') as SelectorType, value: String(s.value ?? '') })
+          : typeof scraper.selectors?.pagination === 'string' && scraper.selectors.pagination
+            ? [{ type: 'css', value: scraper.selectors.pagination }]
+            : [],
+        maxPages: 20,
+        waitAfterClick: 1000
+      },
+      paginationSelectors: [],
       dropdownClickSelectors: Array.isArray(scraper.selectors?.dropdownClick)
-        ? scraper.selectors.dropdownClick.map(s => typeof s === 'string' ? { type: 'css', value: s } : { type: s.type ?? 'css', value: String(s.value ?? '') })
-        : typeof scraper.selectors?.dropdownClick === 'string' && scraper.selectors.dropdownClick
+        ? scraper.selectors.dropdownClick.map(s => typeof s === 'string' ? { type: 'css', value: s } : { type: (s.type ?? 'css') as SelectorType, value: String(s.value ?? '') })
+        : typeof scraper.selectors?.dropdownClick === 'string' && scraper.selectors?.dropdownClick
           ? [{ type: 'css', value: scraper.selectors.dropdownClick }]
           : [],
       childSelectors: scraper.selectors?.child ? JSON.parse(JSON.stringify(scraper.selectors.child)) : { name: [{ type: 'css', value: '' }], phone: [], email: [], website: [], address: [], sector: [] },
@@ -392,6 +474,22 @@ export function ScrapersPage() {
     setTimeout(() => {
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
+
+    (async () => {
+      if (scraper.id) {
+        const t = await getTransformations(scraper.id);
+        setTransformationsState(t);
+        setJobHistoryLoading(true);
+        try {
+          const jobs = await getJobHistory(scraper.id);
+          setJobHistory(jobs as JobHistoryEntry[]);
+        } catch {
+          setJobHistory([]);
+        } finally {
+          setJobHistoryLoading(false);
+        }
+      }
+    })();
   };
 
   const handleNewScraper = () => {
@@ -400,6 +498,12 @@ export function ScrapersPage() {
       name: '',
       source: '',
       mainSelectors: [{ type: 'css', value: '' }],
+      paginationConfig: {
+        type: 'nextButton',
+        selectors: [{ type: 'css', value: '' }],
+        maxPages: 20,
+        waitAfterClick: 1000
+      },
       paginationSelectors: [],
       dropdownClickSelectors: [],
       childSelectors: {
@@ -429,6 +533,12 @@ export function ScrapersPage() {
       name: '',
       source: '',
       mainSelectors: [{ type: 'css', value: '' }],
+      paginationConfig: {
+        type: 'nextButton',
+        selectors: [{ type: 'css', value: '' }],
+        maxPages: 20,
+        waitAfterClick: 1000
+      },
       paginationSelectors: [],
       dropdownClickSelectors: [],
       childSelectors: {
@@ -702,9 +812,54 @@ export function ScrapersPage() {
     setTestInput('');
     setTestResult(null);
   };
-  const handleTestSelector = () => {
-    // Placeholder: In a real implementation, call backend or run JS to test selector
-    setTestResult('Test non implémenté pour le moment.');
+  const handleTestSelector = async () => {
+    setTestLoading(true);
+    setTestError(null);
+    setTestResult(null);
+    try {
+      const result = await testSelector(testInput, { type: testModal.selectorType, value: testModal.selectorValue });
+      setTestResult(result as SelectorTestResult);
+    } catch (err: unknown) {
+      let msg = 'Erreur lors du test du sélecteur';
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const e = err as { response?: { data?: { error?: string } } };
+        msg = e.response?.data?.error || msg;
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
+      setTestError(String(msg));
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
+  const handleOpenShare = (scraper: Scraper) => {
+    setShareTargetScraper(scraper);
+    setShareUserId('');
+    setShowShareDialog(true);
+  };
+  const handleShare = async () => {
+    if (shareTargetScraper && shareUserId) {
+      await shareScraper(shareTargetScraper.id, shareUserId);
+      toast.success('Scraper partagé !');
+      setShowShareDialog(false);
+    }
+  };
+  const handleOpenShared = async () => {
+    setShowSharedDialog(true);
+    const shared = await getSharedScrapers();
+    setSharedScrapers(shared as Scraper[]);
+  };
+  const handleOpenAlerts = async (scraper: Scraper) => {
+    setSelectedAlertScraper(scraper);
+    const alertList = await listAlerts(scraper.id);
+    setAlerts(alertList as Record<string, unknown>[]);
+    setShowAlertsDialog(true);
+  };
+  const handleOpenConfigs = async () => {
+    setShowConfigsDialog(true);
+    const configList = await listConfigs();
+    setConfigs(configList as Record<string, unknown>[]);
   };
 
   return (
@@ -758,100 +913,288 @@ export function ScrapersPage() {
         </Button>
       </div>
       
-      <Card className="p-4">
-        <div className="space-y-4">
-          {/* Filters section */}
-          <div className="flex items-center gap-4 mb-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Rechercher un scraper..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-            <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-              <SelectTrigger className="w-[180px]">
-                <Globe className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Filtrer par pays" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les pays</SelectItem>
-                {countries.map(country => (
-                  <SelectItem key={country} value={country}>{country}</SelectItem>
+      <Tabs defaultValue="scrapers" className="mb-6">
+        <TabsList>
+          <TabsTrigger value="scrapers">Scrapers</TabsTrigger>
+          <TabsTrigger value="shared" onClick={handleOpenShared}>Partagés avec moi</TabsTrigger>
+          <TabsTrigger value="configs" onClick={handleOpenConfigs}>Versions/Configs</TabsTrigger>
+        </TabsList>
+        <TabsContent value="scrapers">
+          <Card className="p-4">
+            <div className="space-y-4">
+              {/* Filters section */}
+              <div className="flex items-center gap-4 mb-4">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Rechercher un scraper..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                  <SelectTrigger className="w-[180px]">
+                    <Globe className="mr-2 h-4 w-4" />
+                    <SelectValue placeholder="Filtrer par pays" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les pays</SelectItem>
+                    {countries.map(country => (
+                      <SelectItem key={country} value={country}>{country}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filtrer par statut" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les statuts</SelectItem>
+                    <SelectItem value="idle">Inactif</SelectItem>
+                    <SelectItem value="running">En cours</SelectItem>
+                    <SelectItem value="completed">Terminé</SelectItem>
+                    <SelectItem value="error">Erreur</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={selectedFrequency} onValueChange={setSelectedFrequency}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filtrer par fréquence" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les fréquences</SelectItem>
+                    <SelectItem value="manual">Manuel</SelectItem>
+                    <SelectItem value="daily">Quotidien</SelectItem>
+                    <SelectItem value="weekly">Hebdomadaire</SelectItem>
+                    <SelectItem value="monthly">Mensuel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Scrapers grid */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {paginatedScrapers.map((scraper) => (
+                  <ScraperCard
+                    key={scraper.id}
+                    scraper={scraper}
+                    onRunScraper={handleRunScraper}
+                    onStopScraper={handleStopScraper}
+                    onViewData={handleViewData}
+                    onEditScraper={(scraper) => {
+                      handleEditScraper(scraper);
+                      setShowForm(true);
+                    }}
+                    onDeleteScraper={handleDeleteScraper}
+                    showEditOptions={true}
+                    showViewData={true}
+                    onShareScraper={handleOpenShare}
+                    onViewAlerts={handleOpenAlerts}
+                  />
                 ))}
-              </SelectContent>
-            </Select>
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filtrer par statut" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
-                <SelectItem value="idle">Inactif</SelectItem>
-                <SelectItem value="running">En cours</SelectItem>
-                <SelectItem value="completed">Terminé</SelectItem>
-                <SelectItem value="error">Erreur</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={selectedFrequency} onValueChange={setSelectedFrequency}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filtrer par fréquence" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes les fréquences</SelectItem>
-                <SelectItem value="manual">Manuel</SelectItem>
-                <SelectItem value="daily">Quotidien</SelectItem>
-                <SelectItem value="weekly">Hebdomadaire</SelectItem>
-                <SelectItem value="monthly">Mensuel</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              </div>
 
-          {/* Scrapers grid */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {paginatedScrapers.map((scraper) => (
-              <ScraperCard
-                key={scraper.id}
-                scraper={scraper}
-                onRunScraper={handleRunScraper}
-                onStopScraper={handleStopScraper}
-                onViewData={handleViewData}
-                onEditScraper={(scraper) => {
-                  handleEditScraper(scraper);
-                  setShowForm(true);
-                }}
-                onDeleteScraper={handleDeleteScraper}
-                showEditOptions={true}
-                showViewData={true}
-              />
-            ))}
-          </div>
+              {/* Display scraped data with animation */}
+              {selectedScraperId && Object.entries(scrapedData).map(([scraperId, entries]) => {
+                const scraper = scrapers.find(s => s.id === scraperId);
+                if (!scraper) return null;
 
-          {/* Display scraped data with animation */}
-          {selectedScraperId && Object.entries(scrapedData).map(([scraperId, entries]) => {
-            const scraper = scrapers.find(s => s.id === scraperId);
-            if (!scraper) return null;
+                return (
+                  <Card 
+                    key={scraperId} 
+                    className="mt-4 animate-fadeIn"
+                    data-scraper-table
+                  >
+                    <CardHeader className="flex flex-row items-center justify-between">
+                      <div>
+                        <CardTitle>Données de {scraper.name}</CardTitle>
+                        <CardDescription>{entries.length} entrées affichées sur {scrapedDataResponse?.total || 0} au total</CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={itemsPerPage.toString()}
+                          onValueChange={(value) => {
+                            setItemsPerPage(Number(value));
+                            setCurrentPage(1);
+                            handleViewData(scraperId);
+                          }}
+                        >
+                          <SelectTrigger className="w-[70px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[5, 10, 20, 50, 100].map((size) => (
+                              <SelectItem key={size} value={size.toString()}>
+                                {size}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              // Export all visible fields as true
+                              await exportScraperDataAsCsv(scraperId, {
+                                nom: true,
+                                email: true,
+                                telephone: true,
+                                adresse: true,
+                                site_web: true,
+                                secteur: true,
+                                created_at: true
+                              }, `donnees-${scraper.name || 'scraper'}`);
+                              toast.success('Export CSV lancé !');
+                            } catch (err) {
+                              toast.error('Erreur lors de l\'export CSV');
+                            }
+                          }}
+                        >
+                          Exporter CSV
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedScraperId(null);
+                            setScrapedData({});
+                            setScrapedDataResponse(null);
+                          }}
+                        >
+                          Fermer
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="rounded-md border overflow-x-auto">
+                        <Table className="rounded-lg overflow-hidden border border-[#15616D]/20 shadow-sm">
+                          <TableHeader>
+                            <TableRow className="bg-gradient-to-r from-[#15616D] to-[#001524]">
+                              <TableHead className="text-white font-semibold py-3 px-4">Nom</TableHead>
+                              <TableHead className="text-white font-semibold py-3 px-4">Email</TableHead>
+                              <TableHead className="text-white font-semibold py-3 px-4">Téléphone</TableHead>
+                              <TableHead className="text-white font-semibold py-3 px-4">Adresse</TableHead>
+                              <TableHead className="text-white font-semibold py-3 px-4">Site Web</TableHead>
+                              <TableHead className="text-white font-semibold py-3 px-4">Secteur</TableHead>
+                              <TableHead className="text-white font-semibold py-3 px-4">Date de Collecte</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {entries.map((entry, index) => (
+                              <TableRow 
+                                key={entry.id}
+                                className={`
+                                  ${index % 2 === 0 ? 'bg-white' : 'bg-[#15616D]/5'}
+                                  hover:bg-[#15616D]/10 transition-colors
+                                `}
+                              >
+                                <TableCell className="font-medium capitalize py-3 px-4 text-[#001524]">
+                                  {entry.nom ? 
+                                    entry.nom.charAt(0).toUpperCase() + entry.nom.slice(1).toLowerCase() : 
+                                    <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-sm">-</span>
+                                  }
+                                </TableCell>
+                                <TableCell className="py-3 px-4">
+                                  {entry.email ? (
+                                    <a 
+                                      href={`mailto:${entry.email}` } 
+                                      className="text-[#] hover:text-[#] hover:underline flex items-center  transition-colors"
+                                    >
+                                      
+                                      <Mail className="h-4 w-4" />
+                                      {entry.email.toLowerCase() } 
+                                    </a>
+                                  ) :<span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-sm">-</span>
+                                  }
+                                </TableCell>
+                                <TableCell className="capitalize py-3 px-4 text-[#15616D]">
+                                  {entry.telephone || <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-sm">-</span>}
+                                </TableCell>
+                                <TableCell className="capitalize py-3 px-4 text-[#15616D]">
+                                  {entry.adresse ? 
+                                    entry.adresse.charAt(0).toUpperCase() + entry.adresse.slice(1).toLowerCase() : 
+                                    <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-sm">-</span>
+                                  }
+                                </TableCell>
+                                <TableCell className="py-3 px-4">
+                                  {entry.site_web ? (
+                                    <a 
+                                      href={entry.site_web} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer" 
+                                      className="text-[#15616D] hover:text-[#001524] hover:underline flex items-center gap-1 transition-colors"
+                                    >
+                                      <LinkIcon className="h-4 w-4" />
+                                      {entry.site_web.toLowerCase()}
+                                    </a>
+                                  ) : <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-sm">-</span>}
+                                </TableCell>
+                                <TableCell className="capitalize py-3 px-4 text-[#15616D]">
+                                  {entry.secteur ? 
+                                    entry.secteur.charAt(0).toUpperCase() + entry.secteur.slice(1).toLowerCase() : 
+                                    <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-sm">-</span>
+                                  }
+                                </TableCell>
+                                <TableCell className="capitalize py-3 px-4 text-[#15616D]/80">
+                                  {formatDate(entry.created_at)}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="flex items-center justify-between mt-4">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-muted-foreground">
+                          Page {currentPage} sur {Math.ceil((scrapedDataResponse?.total || 0) / itemsPerPage)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                        className="flex items-center bg-text-dark  text-dark hover:bg-[#001524] transition-colors duration-300 rounded-md px-4 py-2 shadow-md"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newPage = Math.max(1, currentPage - 1);
+                            setCurrentPage(newPage);
+                            handleViewData(scraperId);
+                          }}
+                          disabled={currentPage === 1}
+                        >
+                          Précédent
+                        </Button>
+                        <Button
+                        className="flex items-center text-dark hover:bg-[#001524] transition-colors duration-300 rounded-md px-4 py-2 shadow-md"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newPage = currentPage + 1;
+                            setCurrentPage(newPage);
+                            handleViewData(scraperId);
+                          }}
+                          disabled={currentPage >= Math.ceil((scrapedDataResponse?.total || 0) / itemsPerPage)}
+                        >
+                          Suivant
+                        </Button>
+                      </div>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
 
-            return (
-              <Card 
-                key={scraperId} 
-                className="mt-4 animate-fadeIn"
-                data-scraper-table
-              >
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Données de {scraper.name}</CardTitle>
-                    <CardDescription>{entries.length} entrées affichées sur {scrapedDataResponse?.total || 0} au total</CardDescription>
-                  </div>
+              {/* Pagination */}
+              {totalItems > 0 && (
+                <div className="flex items-center justify-between mt-6">
                   <div className="flex items-center gap-2">
+                    <p className="text-sm text-muted-foreground whitespace-nowrap">
+                      Affichage de {startIndex + 1} à {endIndex} sur {totalItems} scrapers
+                    </p>
                     <Select
                       value={itemsPerPage.toString()}
                       onValueChange={(value) => {
                         setItemsPerPage(Number(value));
                         setCurrentPage(1);
-                        handleViewData(scraperId);
                       }}
                     >
                       <SelectTrigger className="w-[70px]">
@@ -865,188 +1208,109 @@ export function ScrapersPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedScraperId(null);
-                        setScrapedData({});
-                        setScrapedDataResponse(null);
-                      }}
-                    >
-                      Fermer
-                    </Button>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="rounded-md border overflow-x-auto">
-                  <Table className="rounded-lg overflow-hidden border border-[#15616D]/20 shadow-sm">
-  <TableHeader>
-    <TableRow className="bg-gradient-to-r from-[#15616D] to-[#001524]">
-      <TableHead className="text-white font-semibold py-3 px-4">Nom</TableHead>
-      <TableHead className="text-white font-semibold py-3 px-4">Email</TableHead>
-      <TableHead className="text-white font-semibold py-3 px-4">Téléphone</TableHead>
-      <TableHead className="text-white font-semibold py-3 px-4">Adresse</TableHead>
-      <TableHead className="text-white font-semibold py-3 px-4">Site Web</TableHead>
-      <TableHead className="text-white font-semibold py-3 px-4">Secteur</TableHead>
-      <TableHead className="text-white font-semibold py-3 px-4">Date de Collecte</TableHead>
-    </TableRow>
-  </TableHeader>
-  <TableBody>
-    {entries.map((entry, index) => (
-      <TableRow 
-        key={entry.id}
-        className={`
-          ${index % 2 === 0 ? 'bg-white' : 'bg-[#15616D]/5'}
-          hover:bg-[#15616D]/10 transition-colors
-        `}
-      >
-        <TableCell className="font-medium capitalize py-3 px-4 text-[#001524]">
-          {entry.nom ? 
-            entry.nom.charAt(0).toUpperCase() + entry.nom.slice(1).toLowerCase() : 
-            <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-sm">-</span>
-          }
-        </TableCell>
-        <TableCell className="py-3 px-4">
-          {entry.email ? (
-            <a 
-              href={`mailto:${entry.email}` } 
-              className="text-[#] hover:text-[#] hover:underline flex items-center  transition-colors"
-            >
-              
-              <Mail className="h-4 w-4" />
-              {entry.email.toLowerCase() } 
-            </a>
-          ) :<span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-sm">-</span>
-          }
-        </TableCell>
-        <TableCell className="capitalize py-3 px-4 text-[#15616D]">
-          {entry.telephone || <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-sm">-</span>}
-        </TableCell>
-        <TableCell className="capitalize py-3 px-4 text-[#15616D]">
-          {entry.adresse ? 
-            entry.adresse.charAt(0).toUpperCase() + entry.adresse.slice(1).toLowerCase() : 
-            <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-sm">-</span>
-          }
-        </TableCell>
-        <TableCell className="py-3 px-4">
-          {entry.site_web ? (
-            <a 
-              href={entry.site_web} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="text-[#15616D] hover:text-[#001524] hover:underline flex items-center gap-1 transition-colors"
-            >
-              <LinkIcon className="h-4 w-4" />
-              {entry.site_web.toLowerCase()}
-            </a>
-          ) : <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-sm">-</span>}
-        </TableCell>
-        <TableCell className="capitalize py-3 px-4 text-[#15616D]">
-          {entry.secteur ? 
-            entry.secteur.charAt(0).toUpperCase() + entry.secteur.slice(1).toLowerCase() : 
-            <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-sm">-</span>
-          }
-        </TableCell>
-        <TableCell className="capitalize py-3 px-4 text-[#15616D]/80">
-          {formatDate(entry.created_at)}
-        </TableCell>
-      </TableRow>
-    ))}
-  </TableBody>
-</Table>
 
-                  </div>
-                </CardContent>
-                <CardFooter className="flex items-center justify-between mt-4">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm text-muted-foreground">
-                      Page {currentPage} sur {Math.ceil((scrapedDataResponse?.total || 0) / itemsPerPage)}
-                    </p>
-                  </div>
                   <div className="flex items-center gap-2">
                     <Button
-                    className="flex items-center bg-text-dark  text-dark hover:bg-[#001524] transition-colors duration-300 rounded-md px-4 py-2 shadow-md"
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        const newPage = Math.max(1, currentPage - 1);
-                        setCurrentPage(newPage);
-                        handleViewData(scraperId);
-                      }}
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                       disabled={currentPage === 1}
                     >
                       Précédent
                     </Button>
                     <Button
-                    className="flex items-center text-dark hover:bg-[#001524] transition-colors duration-300 rounded-md px-4 py-2 shadow-md"
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        const newPage = currentPage + 1;
-                        setCurrentPage(newPage);
-                        handleViewData(scraperId);
-                      }}
-                      disabled={currentPage >= Math.ceil((scrapedDataResponse?.total || 0) / itemsPerPage)}
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
                     >
                       Suivant
                     </Button>
                   </div>
-                </CardFooter>
-              </Card>
-            );
-          })}
-
-          {/* Pagination */}
-          {totalItems > 0 && (
-            <div className="flex items-center justify-between mt-6">
-              <div className="flex items-center gap-2">
-                <p className="text-sm text-muted-foreground whitespace-nowrap">
-                  Affichage de {startIndex + 1} à {endIndex} sur {totalItems} scrapers
-                </p>
-                <Select
-                  value={itemsPerPage.toString()}
-                  onValueChange={(value) => {
-                    setItemsPerPage(Number(value));
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-[70px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[5, 10, 20, 50, 100].map((size) => (
-                      <SelectItem key={size} value={size.toString()}>
-                        {size}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Précédent
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Suivant
-                </Button>
-              </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </Card>
-      
+          </Card>
+        </TabsContent>
+        <TabsContent value="shared">
+          {/* Implementation of shared scrapers tab */}
+        </TabsContent>
+        <TabsContent value="configs">
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Versions / Configs</h3>
+              <Button variant="outline" size="sm" onClick={handleOpenConfigs}>Rafraîchir</Button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-xs border">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="p-2 border">Nom</th>
+                    <th className="p-2 border">Version</th>
+                    <th className="p-2 border">Dernière mise à jour</th>
+                    <th className="p-2 border">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {configs.length === 0 ? (
+                    <tr><td colSpan={4} className="p-2 text-center text-muted-foreground">Aucune config trouvée.</td></tr>
+                  ) : (configs as ConfigSummary[]).map((config) => (
+                    <tr key={config.id}>
+                      <td className="p-2 border font-semibold">{config.name}</td>
+                      <td className="p-2 border">{config.version}</td>
+                      <td className="p-2 border">{config.updated_at ? new Date(config.updated_at).toLocaleString() : '-'}</td>
+                      <td className="p-2 border flex gap-2">
+                        <Button size="sm" variant="outline" onClick={async () => {
+                          try {
+                            const details = await getConfig(config.id);
+                            setConfigs((prev: ConfigSummary[]) => prev.map(c => c.id === config.id ? { ...c, _details: details } : c));
+                            setShowConfigsDialog(true);
+                          } catch {
+                            toast.error('Erreur lors du chargement de la config');
+                          }
+                        }}>Voir</Button>
+                        <Button size="sm" variant="destructive" onClick={async () => {
+                          if (window.confirm('Supprimer cette config ?')) {
+                            try {
+                              await deleteConfig(config.id);
+                              toast.success('Config supprimée');
+                              handleOpenConfigs();
+                            } catch {
+                              toast.error('Erreur lors de la suppression');
+                            }
+                          }
+                        }}>Supprimer</Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Config details dialog */}
+            <Dialog open={showConfigsDialog} onOpenChange={setShowConfigsDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Détails de la config</DialogTitle>
+                </DialogHeader>
+                <div className="overflow-x-auto max-h-96">
+                  {(configs as ConfigSummary[]).find((c) => c._details) ? (
+                    <pre className="text-xs bg-gray-100 p-2 rounded border overflow-x-auto">
+                      {JSON.stringify((configs as ConfigSummary[]).find((c) => c._details)?._details, null, 2)}
+                    </pre>
+                  ) : (
+                    <div className="text-muted-foreground text-xs">Aucune donnée à afficher.</div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setShowConfigsDialog(false)}>Fermer</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
       {showForm && (
         <Card ref={formRef}>
           <form onSubmit={handleSubmit}>
@@ -1233,116 +1497,117 @@ export function ScrapersPage() {
                 ))}
               </div>
 
-              {/* Pagination Selectors (dynamic array UI) */}
+              {/* Pagination */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Sélecteurs de pagination (optionnel)</label>
-                {formData.paginationSelectors.length === 0 && (
-                  <Button type="button" variant="ghost" size="sm" onClick={() => addSelector('paginationSelectors')}>+ Ajouter un sélecteur</Button>
-                )}
-                {formData.paginationSelectors.map((selector, idx) => (
-                  <div key={idx} className="flex gap-2 items-center mb-1">
-                    <Select
-                      value={selector.type}
-                      onValueChange={value => updateSelector('paginationSelectors', idx, 'type', value)}
-                    >
-                      <SelectTrigger className="w-[90px]">
-                        <SelectValue placeholder="Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="css">CSS</SelectItem>
-                        <SelectItem value="xpath">XPath</SelectItem>
-                      </SelectContent>
-                    </Select>
+                <label className="text-sm font-medium">Pagination</label>
+                <div className="flex gap-2 items-center">
+                  <Select
+                    value={formData.paginationConfig.type}
+                    onValueChange={v => handleInputChange('paginationConfig.type', v)}
+                  >
+                    <SelectTrigger className="w-[160px]">
+                      <SelectValue placeholder="Type de pagination" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nextButton">Bouton Suivant</SelectItem>
+                      <SelectItem value="numberLinks">Liens Numérotés</SelectItem>
+                      <SelectItem value="loadMore">Bouton "Charger plus"</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    className="w-24"
+                    min={1}
+                    max={1000}
+                    value={formData.paginationConfig.maxPages}
+                    onChange={e => handleInputChange('paginationConfig.maxPages', Number(e.target.value))}
+                    placeholder="Pages max"
+                  />
+                  {formData.paginationConfig.type === 'loadMore' && (
                     <Input
-                      className="flex-1"
-                      placeholder="Valeur du sélecteur"
-                      value={selector.value}
-                      onChange={e => updateSelector('paginationSelectors', idx, 'value', e.target.value)}
+                      type="number"
+                      className="w-32"
+                      min={0}
+                      value={formData.paginationConfig.waitAfterClick || 1000}
+                      onChange={e => handleInputChange('paginationConfig.waitAfterClick', Number(e.target.value))}
+                      placeholder="Attente après clic (ms)"
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeSelector('paginationSelectors', idx)}
-                    >
-                      -
-                    </Button>
-                    {idx === formData.paginationSelectors.length - 1 && (
+                  )}
+                </div>
+                <div className="space-y-1 mt-2">
+                  <label className="text-xs font-medium">Sélecteurs de pagination</label>
+                  {formData.paginationConfig.selectors.map((selector, idx) => (
+                    <div key={idx} className="flex gap-2 items-center mb-1">
+                      <Select
+                        value={selector.type as SelectorType}
+                        onValueChange={v => {
+                          const updated = [...formData.paginationConfig.selectors];
+                          updated[idx] = { ...updated[idx], type: v as SelectorType };
+                          setFormData(prev => ({
+                            ...prev,
+                            paginationConfig: { ...prev.paginationConfig, selectors: updated }
+                          }));
+                        }}
+                      >
+                        <SelectTrigger className="w-[90px]">
+                          <SelectValue placeholder="Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="css">CSS</SelectItem>
+                          <SelectItem value="xpath">XPath</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        className="flex-1"
+                        placeholder="Valeur du sélecteur"
+                        value={selector.value}
+                        onChange={e => {
+                          const updated = [...formData.paginationConfig.selectors];
+                          updated[idx] = { ...updated[idx], value: e.target.value };
+                          setFormData(prev => ({
+                            ...prev,
+                            paginationConfig: { ...prev.paginationConfig, selectors: updated }
+                          }));
+                        }}
+                      />
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        onClick={() => addSelector('paginationSelectors')}
+                        onClick={() => {
+                          setFormData(prev => ({
+                            ...prev,
+                            paginationConfig: {
+                              ...prev.paginationConfig,
+                              selectors: prev.paginationConfig.selectors.filter((_, i) => i !== idx)
+                            }
+                          }));
+                        }}
+                        disabled={formData.paginationConfig.selectors.length === 1}
                       >
-                        +
+                        -
                       </Button>
-                    )}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openTestModal('paginationSelectors', idx, selector.type, selector.value)}
-                    >
-                      Tester
-                    </Button>
-                  </div>
-                ))}
-              </div>
-
-              {/* Dropdown Click Selectors (dynamic array UI) */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Sélecteurs pour ouvrir les dropdowns (optionnel)</label>
-                {formData.dropdownClickSelectors.length === 0 && (
-                  <Button type="button" variant="ghost" size="sm" onClick={() => addSelector('dropdownClickSelectors')}>+ Ajouter un sélecteur</Button>
-                )}
-                {formData.dropdownClickSelectors.map((selector, idx) => (
-                  <div key={idx} className="flex gap-2 items-center mb-1">
-                    <Select
-                      value={selector.type}
-                      onValueChange={value => updateSelector('dropdownClickSelectors', idx, 'type', value)}
-                    >
-                      <SelectTrigger className="w-[90px]">
-                        <SelectValue placeholder="Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="css">CSS</SelectItem>
-                        <SelectItem value="xpath">XPath</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      className="flex-1"
-                      placeholder="Valeur du sélecteur"
-                      value={selector.value}
-                      onChange={e => updateSelector('dropdownClickSelectors', idx, 'value', e.target.value)}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeSelector('dropdownClickSelectors', idx)}
-                    >
-                      -
-                    </Button>
-                    {idx === formData.dropdownClickSelectors.length - 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => addSelector('dropdownClickSelectors')}
-                      >
-                        +
-                      </Button>
-                    )}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openTestModal('dropdownClickSelectors', idx, selector.type, selector.value)}
-                    >
-                      Tester
-                    </Button>
-                  </div>
-                ))}
+                      {idx === formData.paginationConfig.selectors.length - 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              paginationConfig: {
+                                ...prev.paginationConfig,
+                                selectors: [...prev.paginationConfig.selectors, { type: 'css', value: '' }]
+                              }
+                            }));
+                          }}
+                        >
+                          +
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Child Selectors (dynamic array UI) */}
@@ -1408,6 +1673,36 @@ export function ScrapersPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Règles de transformation des champs</label>
+                <table className="min-w-full text-xs border">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="p-2 border">Champ</th>
+                      <th className="p-2 border">Transformations</th>
+                      <th className="p-2 border">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.keys(formData.childSelectors).map(field => (
+                      <tr key={field}>
+                        <td className="p-2 border font-semibold">{field}</td>
+                        <td className="p-2 border">
+                          {(transformations.filter(t => t.field === field) || []).map((t, i) => (
+                            <span key={i} className="inline-block bg-blue-100 text-blue-800 rounded px-2 py-1 mr-1 mb-1">
+                              {t.type}
+                            </span>
+                          ))}
+                        </td>
+                        <td className="p-2 border">
+                          <Button type="button" size="sm" variant="outline" onClick={() => { setEditingField(field); setEditingTransform({}); setShowTransformDialog(true); }}>Éditer</Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
               <div className="space-y-2">
@@ -1491,15 +1786,26 @@ export function ScrapersPage() {
               </DialogHeader>
               <div className="space-y-2">
                 <Input
-                  placeholder="URL de la page ou HTML à tester (non fonctionnel pour l'instant)"
+                  placeholder="URL de la page à tester"
                   value={testInput}
                   onChange={e => setTestInput(e.target.value)}
                 />
-                <Button type="button" onClick={handleTestSelector}>
-                  Lancer le test
+                <Button type="button" onClick={handleTestSelector} disabled={testLoading || !testInput}>
+                  {testLoading ? 'Test en cours...' : 'Lancer le test'}
                 </Button>
-                {testResult && (
-                  <div className="mt-2 text-sm text-muted-foreground">Résultat: {testResult}</div>
+                {testError && <div className="text-red-500 text-xs">{testError}</div>}
+                {testResult && typeof testResult === 'object' && 'matches' in testResult && (
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    <div>Éléments trouvés : <b>{testResult.matches}</b></div>
+                    {Array.isArray(testResult.samples) && testResult.samples.length > 0 && (
+                      <div>
+                        <div className="font-semibold mt-2">Aperçu :</div>
+                        <ul className="list-disc ml-4">
+                          {testResult.samples.map((s, i) => <li key={i}>{s}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
               <DialogFooter>
@@ -1507,6 +1813,106 @@ export function ScrapersPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          {/* Dialog for editing transformations */}
+          <Dialog open={showTransformDialog} onOpenChange={setShowTransformDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Éditer les transformations pour {editingField}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-2">
+                <label className="block text-xs font-medium">Type de transformation</label>
+                <Select value={String(editingTransform.type || '')} onValueChange={v => setEditingTransform(t => ({ ...t, type: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="trimWhitespace">Supprimer les espaces</SelectItem>
+                    <SelectItem value="regexReplace">Remplacer par regex</SelectItem>
+                    <SelectItem value="removeText">Supprimer un texte</SelectItem>
+                    <SelectItem value="prependText">Ajouter au début</SelectItem>
+                    <SelectItem value="appendText">Ajouter à la fin</SelectItem>
+                    <SelectItem value="capitalize">Mettre en majuscule</SelectItem>
+                    <SelectItem value="lowercase">Minuscule</SelectItem>
+                    <SelectItem value="uppercase">Majuscule</SelectItem>
+                    <SelectItem value="extractNumber">Extraire nombre</SelectItem>
+                    <SelectItem value="formatDate">Formater date</SelectItem>
+                  </SelectContent>
+                </Select>
+                {/* Additional fields for transformation params */}
+                {editingTransform.type === 'regexReplace' && (
+                  <div className="space-y-1">
+                    <Input placeholder="Pattern regex" value={String(editingTransform.pattern || '')} onChange={e => setEditingTransform(t => ({ ...t, pattern: e.target.value }))} />
+                    <Input placeholder="Remplacement" value={String(editingTransform.replacement || '')} onChange={e => setEditingTransform(t => ({ ...t, replacement: e.target.value }))} />
+                  </div>
+                )}
+                {editingTransform.type === 'removeText' && (
+                  <Input placeholder="Texte à supprimer" value={String(editingTransform.textToRemove || '')} onChange={e => setEditingTransform(t => ({ ...t, textToRemove: e.target.value }))} />
+                )}
+                {editingTransform.type === 'prependText' && (
+                  <Input placeholder="Texte à ajouter au début" value={String(editingTransform.textToPrepend || '')} onChange={e => setEditingTransform(t => ({ ...t, textToPrepend: e.target.value }))} />
+                )}
+                {editingTransform.type === 'appendText' && (
+                  <Input placeholder="Texte à ajouter à la fin" value={String(editingTransform.textToAppend || '')} onChange={e => setEditingTransform(t => ({ ...t, textToAppend: e.target.value }))} />
+                )}
+                {editingTransform.type === 'formatDate' && (
+                  <Input placeholder="Format (ISO, short, long)" value={String(editingTransform.format || '')} onChange={e => setEditingTransform(t => ({ ...t, format: e.target.value }))} />
+                )}
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setShowTransformDialog(false)}>Annuler</Button>
+                <Button type="button" onClick={() => {
+                  if (editingField) {
+                    setTransformationsState(prev => {
+                      const filtered = prev.filter(t => t.field !== editingField);
+                      return [...filtered, { ...editingTransform, field: editingField, type: String(editingTransform.type || '') }];
+                    });
+                    setShowTransformDialog(false);
+                  }
+                }}>Enregistrer</Button>
+                <Button type="button" variant="destructive" onClick={() => {
+                  if (editingField) {
+                    setTransformationsState(prev => prev.filter(t => t.field !== editingField));
+                    setShowTransformDialog(false);
+                  }
+                }}>Supprimer</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <div className="space-y-2 mt-6">
+            <label className="text-sm font-medium">Historique des exécutions</label>
+            {jobHistoryLoading ? (
+              <div className="text-xs text-muted-foreground">Chargement de l'historique...</div>
+            ) : jobHistory.length === 0 ? (
+              <div className="text-xs text-muted-foreground">Aucun historique trouvé pour ce scraper.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-xs border">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="p-2 border">Job ID</th>
+                      <th className="p-2 border">Statut</th>
+                      <th className="p-2 border">Pages</th>
+                      <th className="p-2 border">Items</th>
+                      <th className="p-2 border">Erreur</th>
+                      <th className="p-2 border">Début</th>
+                      <th className="p-2 border">Fin</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {jobHistory.map(job => (
+                      <tr key={job.id}>
+                        <td className="p-2 border font-mono">{job.job_id}</td>
+                        <td className="p-2 border">{job.status}</td>
+                        <td className="p-2 border">{job.total_pages}</td>
+                        <td className="p-2 border">{job.total_items}</td>
+                        <td className="p-2 border text-red-500">{job.error_message || '-'}</td>
+                        <td className="p-2 border">{job.started_at ? new Date(job.started_at).toLocaleString() : '-'}</td>
+                        <td className="p-2 border">{job.completed_at ? new Date(job.completed_at).toLocaleString() : '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </Card>
       )}
     </div>

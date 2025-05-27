@@ -80,6 +80,9 @@ async function playwrightScraper(url, config, scraperId) {
   config = securityService.validateScraperConfig(config);
   url = securityService.sanitizeInput(url);
 
+  // Ensure config.pagination is set from selectors.pagination if present
+  config.pagination = config.pagination || config.selectors?.pagination || config.selectors?.paginationConfig || { type: 'nextButton', selectors: [{ type: 'css', value: '' }], maxPages: 20 };
+
   const metrics = {
     startTime: Date.now(),
     totalRequests: 0,

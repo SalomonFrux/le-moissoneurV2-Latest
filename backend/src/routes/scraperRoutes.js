@@ -52,4 +52,7 @@ router.get('/shared', scraperController.getSharedScrapers);
 // Alerts endpoint
 router.get('/alerts', scraperController.listAlerts);
 
+// Add after other scraper routes:
+router.get('/:id/job-history', scraperController.getJobHistory);
+
 module.exports = router;

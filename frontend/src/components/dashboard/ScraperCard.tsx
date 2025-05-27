@@ -30,6 +30,8 @@ interface ScraperCardProps {
   onDeleteScraper?: (id: string) => void;
   showViewData?: boolean;
   showEditOptions?: boolean;
+  onShareScraper?: (scraper: Scraper) => void;
+  onViewAlerts?: (scraper: Scraper) => void;
 }
 
 export function ScraperCard({ 
@@ -40,7 +42,9 @@ export function ScraperCard({
   onEditScraper,
   onDeleteScraper,
   showViewData = true,
-  showEditOptions = false 
+  showEditOptions = false,
+  onShareScraper,
+  onViewAlerts
 }: ScraperCardProps) {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
@@ -207,6 +211,16 @@ export function ScraperCard({
               onClick={() => onViewData(scraper.id)}
             >
               <Eye className="h-4 w-4" />
+            </Button>
+          )}
+          {onShareScraper && (
+            <Button variant="outline" size="sm" onClick={() => onShareScraper(scraper)}>
+              Partager
+            </Button>
+          )}
+          {onViewAlerts && (
+            <Button variant="outline" size="sm" onClick={() => onViewAlerts(scraper)}>
+              Alertes
             </Button>
           )}
         </div>
