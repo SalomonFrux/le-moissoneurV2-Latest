@@ -2,6 +2,7 @@ const { supabase } = require('../db/supabase');
 const logger = require('../utils/logger');
 // const webSocketManager = require('../websocket/webSocketManager'); // Removed
 const scraperStatusHandler = require('../websocket/scraperStatusHandler'); // Added
+const nodemailer = require('nodemailer');
 
 // Alert severity levels
 const SEVERITY = {
@@ -28,6 +29,31 @@ class AlertingService {
       memoryUsage: 0.8, // 80% memory usage threshold
       dataMissing: 0.2 // 20% missing data threshold
     };
+    // Setup nodemailer transporter
+    this.transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT, 10) || 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
+    this.adminEmail = process.env.ALERT_ADMIN_EMAIL;
+  }
+
+  async sendEmail(subject, text) {
+    if (!this.adminEmail) return;
+    try {
+      await this.transporter.sendMail({
+        from: `Le Moissonneur Alerts <${this.transporter.options.auth.user}>`,
+        to: this.adminEmail,
+        subject,
+        text
+      });
+    } catch (err) {
+      logger.error('Failed to send alert email:', err);
+    }
   }
 
   /**
@@ -83,6 +109,13 @@ class AlertingService {
         }
       } else if (notificationChannels.includes('websocket') && !scraperStatusHandler.io) {
         logger.warn('Cannot send WebSocket alert: Socket.IO not initialized in scraperStatusHandler.');
+      }
+
+      // Send email for critical alerts
+      if (severity === SEVERITY.CRITICAL) {
+        const subject = `[CRITICAL ALERT] ${category} - ${message}`;
+        const text = `A critical alert was triggered.\n\nCategory: ${category}\nMessage: ${message}\nScraper ID: ${scraperId}\nData: ${JSON.stringify(data, null, 2)}\nTime: ${alert.created_at}`;
+        await this.sendEmail(subject, text);
       }
 
       logger.info(`Alert created: [${severity}] ${message}`);

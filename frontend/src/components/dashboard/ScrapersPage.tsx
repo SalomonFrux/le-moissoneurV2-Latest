@@ -13,10 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Code, Save, RefreshCw, Search, Filter, MoreVertical, Globe, Mail, LinkIcon } from 'lucide-react';
+import { Plus, Code, Save, RefreshCw, Search, Filter, MoreVertical, Globe, Mail, LinkIcon, AlertTriangle, Bell } from 'lucide-react';
 import { ScraperCard } from './ScraperCard';
 import { toast } from 'sonner';
-import { getAllScrapers, runScraper, getScraperStatus, createScraper, deleteScraper, updateScraper, getTransformations, setTransformations, shareScraper, getSharedScrapers, listAlerts, listConfigs, getConfig, deleteConfig, testSelector, getJobHistory, exportScraperDataAsCsv } from '@/services/scraperService';
+import { getAllScrapers, runScraper, getScraperStatus, createScraper, deleteScraper, updateScraper, getTransformations, setTransformations, shareScraper, getSharedScrapers, listAlerts, listConfigs, getConfig, deleteConfig, testSelector, getJobHistory, exportScraperDataAsCsv, autoLabelField } from '@/services/scraperService';
 import { dataService, type Scraper, type ScrapedEntry, type PaginatedResponse, type FetchDataParams, type SelectorObject, type SelectorType } from '@/services/dataService';
 import { 
   DropdownMenu,
@@ -193,7 +193,7 @@ export function ScrapersPage() {
   const [alerts, setAlerts] = useState<Record<string, unknown>[]>([]);
   const [showAlertsDialog, setShowAlertsDialog] = useState(false);
   const [selectedAlertScraper, setSelectedAlertScraper] = useState<Scraper | null>(null);
-  const [configs, setConfigs] = useState<Record<string, unknown>[]>([]);
+  const [configs, setConfigs] = useState<ConfigSummary[]>([]);
   const [showConfigsDialog, setShowConfigsDialog] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
@@ -859,7 +859,7 @@ export function ScrapersPage() {
   const handleOpenConfigs = async () => {
     setShowConfigsDialog(true);
     const configList = await listConfigs();
-    setConfigs(configList as Record<string, unknown>[]);
+    setConfigs(configList as unknown as ConfigSummary[]);
   };
 
   return (
@@ -1234,8 +1234,76 @@ export function ScrapersPage() {
           </Card>
         </TabsContent>
         <TabsContent value="shared">
-          {/* Implementation of shared scrapers tab */}
+          <Card className="p-4">
+            <h3 className="text-lg font-semibold mb-4">Scrapers partagés avec moi</h3>
+            {sharedScrapers.length === 0 ? (
+              <div className="text-muted-foreground text-sm">Aucun scraper partagé trouvé.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-xs border">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="p-2 border">Nom</th>
+                      <th className="p-2 border">Source</th>
+                      <th className="p-2 border">Pays</th>
+                      <th className="p-2 border">Type</th>
+                      <th className="p-2 border">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sharedScrapers.map((scraper) => (
+                      <tr key={scraper.id}>
+                        <td className="p-2 border font-semibold">{scraper.name}</td>
+                        <td className="p-2 border">{scraper.source}</td>
+                        <td className="p-2 border">{scraper.country}</td>
+                        <td className="p-2 border">{scraper.type}</td>
+                        <td className="p-2 border">
+                          <Button size="sm" variant="outline" onClick={() => handleViewData(scraper.id)}>Voir données</Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
         </TabsContent>
+        {/* Alerts Dialog */}
+        <Dialog open={showAlertsDialog} onOpenChange={setShowAlertsDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Alertes pour {selectedAlertScraper?.name || ''}</DialogTitle>
+            </DialogHeader>
+            <div className="max-h-96 overflow-y-auto">
+              {alerts.length === 0 ? (
+                <div className="text-muted-foreground text-xs">Aucune alerte trouvée.</div>
+              ) : (
+                <ul className="space-y-2">
+                  {alerts.map((alert, i) => {
+                    const isCritical = alert.severity === 'critical';
+                    if (isCritical) {
+                      toast.warning(`ALERTE CRITIQUE: ${alert.title || 'Alerte'} - ${alert.message}`);
+                    }
+                    return (
+                      <li key={i} className={`p-2 rounded border-l-4 ${isCritical ? 'bg-red-50 border-red-500' : 'bg-yellow-50 border-yellow-400'}`}>
+                        <div className="flex items-center gap-2 font-semibold text-yellow-800">
+                          {isCritical ? <AlertTriangle className="text-red-500 h-4 w-4" /> : <Bell className="text-yellow-500 h-4 w-4" />}
+                          {String(alert.title) || 'Alerte'}
+                          {isCritical && <span className="ml-2 px-2 py-0.5 bg-red-500 text-white text-xs rounded">CRITIQUE</span>}
+                        </div>
+                        <div className="text-xs text-yellow-700">{String(alert.message) || JSON.stringify(alert)}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{alert.created_at ? new Date(String(alert.created_at)).toLocaleString() : ''}</div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowAlertsDialog(false)}>Fermer</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <TabsContent value="configs">
           <Card className="p-4">
             <div className="flex items-center justify-between mb-4">
@@ -1688,7 +1756,26 @@ export function ScrapersPage() {
                   <tbody>
                     {Object.keys(formData.childSelectors).map(field => (
                       <tr key={field}>
-                        <td className="p-2 border font-semibold">{field}</td>
+                        <td className="p-2 border font-semibold flex items-center gap-2">
+                          {field}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={async () => {
+                              const sample = prompt(`Entrez une valeur d'exemple pour le champ "${field}" à auto-labeller:`);
+                              if (!sample) return;
+                              try {
+                                const result = await autoLabelField(sample) as { suggestedField?: string; type?: string };
+                                toast.info(`Suggestion: ${result.suggestedField || result.type || JSON.stringify(result)}`);
+                              } catch (err) {
+                                toast.error('Erreur lors de la suggestion auto-label');
+                              }
+                            }}
+                          >
+                            Suggérer
+                          </Button>
+                        </td>
                         <td className="p-2 border">
                           {(transformations.filter(t => t.field === field) || []).map((t, i) => (
                             <span key={i} className="inline-block bg-blue-100 text-blue-800 rounded px-2 py-1 mr-1 mb-1">

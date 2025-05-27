@@ -114,3 +114,8 @@ export async function exportScraperDataAsCsv(scraperId: string, fields: Record<s
   link.parentNode?.removeChild(link);
   window.URL.revokeObjectURL(url);
 }
+
+export async function autoLabelField(value: string, context?: string, headerText?: string) {
+  const response = await axios.post(`${API_URL}/api/scrapers/auto-label`, { value, context, headerText });
+  return response.data;
+}
