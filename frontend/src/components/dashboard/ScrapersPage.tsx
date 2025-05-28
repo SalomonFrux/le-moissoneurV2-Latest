@@ -1313,6 +1313,68 @@ export function ScrapersPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Selector Tester Modal */}
+        <Dialog open={testModal.open} onOpenChange={(isOpen) => !isOpen && closeTestModal()}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>
+                Test Selector: {testModal.field && testModal.idx !== -1 ? `${testModal.field}[${testModal.idx}]` : 'Selector'} 
+                ({testModal.selectorType}: {testModal.selectorValue})
+              </DialogTitle>
+              <DialogDescription>
+                Enter a URL to fetch and test the selector against, or directly paste HTML content.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <Textarea 
+                placeholder="Enter URL or paste HTML content here..."
+                value={testInput}
+                onChange={(e) => setTestInput(e.target.value)}
+                rows={8}
+                className="text-sm"
+              />
+              
+              {testLoading && <p className="text-sm text-muted-foreground">Testing selector...</p>}
+              {testError && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{testError}</p>}
+              {testResult && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Matches found: <span className="font-bold">{testResult.matches}</span></p>
+                  {testResult.matches > 0 && (
+                    <>
+                      <label className="text-sm font-medium">Samples (first {testResult.samples.length}):</label>
+                      <Textarea 
+                        readOnly 
+                        value={testResult.samples.join('\n-----------------\n')} 
+                        rows={6} 
+                        className="text-xs bg-gray-50"
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={closeTestModal}>Cancel</Button>
+              <Button onClick={handleTestSelector} disabled={testLoading || !testInput}>
+                {testLoading ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Testing...
+                  </>
+                ) : (
+                  <>
+                    <Search className="mr-2 h-4 w-4" />
+                    Run Test
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <TabsContent value="configs">
           <Card className="p-4">
             <div className="flex items-center justify-between mb-4">
@@ -1406,6 +1468,27 @@ export function ScrapersPage() {
                   <Input id="source" placeholder="Ex: https://fadev.org" value={formData.source} onChange={(e) => handleInputChange('source', e.target.value)} required />
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <label htmlFor="country" className="text-sm font-medium">Pays ou Continent</label>
+                <Select
+                  value={formData.country || ''}
+                  onValueChange={(value) => handleInputChange('country', value)}
+                >
+                  <SelectTrigger id="country" className="w-full">
+                    <Globe className="mr-2 h-4 w-4 text-gray-500" />
+                    <SelectValue placeholder="Sélectionnez un pays ou continent..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {countries.map((countryOption) => (
+                      <SelectItem key={countryOption} value={countryOption}>
+                        {countryOption}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
               <div className="space-y-2">
                 <label className="text-sm font-medium">Sélecteurs principaux</label>
                 {formData.mainSelectors.map((selector, idx) => (
@@ -1460,7 +1543,7 @@ export function ScrapersPage() {
               </div>
               <Accordion type="single" collapsible className="mt-4 border rounded-lg bg-white">
                 <AccordionItem value="pagination">
-                  <AccordionTrigger className="text-base font-semibold px-4 py-2">Pagination</AccordionTrigger>
+                  <AccordionTrigger className="text-base px-4 py-2">Pagination</AccordionTrigger>
                   <AccordionContent className="p-4 border-t bg-gray-50">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Pagination</label>
@@ -1567,7 +1650,7 @@ export function ScrapersPage() {
                   </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="child-selectors">
-                  <AccordionTrigger className="text-base font-semibold px-4 py-2">Sélecteurs enfants</AccordionTrigger>
+                  <AccordionTrigger className="text-base px-4 py-2">Sélecteurs enfants</AccordionTrigger>
                   <AccordionContent className="p-4 border-t bg-gray-50">
                     {Object.entries(formData.childSelectors).map(([childField, selectors]) => (
                       <div key={childField} className="space-y-1">
@@ -1630,7 +1713,7 @@ export function ScrapersPage() {
                   </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="transform-rules">
-                  <AccordionTrigger className="text-base font-semibold px-4 py-2">Règles de transformation des champs</AccordionTrigger>
+                  <AccordionTrigger className="text-base px-4 py-2">Règles de transformation des champs</AccordionTrigger>
                   <AccordionContent className="p-4 border-t bg-gray-50">
                     {Object.keys(formData.childSelectors).map(field => (
                       <tr key={field}>
@@ -1669,7 +1752,7 @@ export function ScrapersPage() {
                   </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="frequency">
-                  <AccordionTrigger className="text-base font-semibold px-4 py-2">Fréquence</AccordionTrigger>
+                  <AccordionTrigger className="text-base px-4 py-2">Fréquence</AccordionTrigger>
                   <AccordionContent className="p-4 border-t bg-gray-50">
                     <Select
                       value={formData.frequency || 'manual'}
