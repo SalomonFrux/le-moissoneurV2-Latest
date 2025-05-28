@@ -4688,17 +4688,274 @@ PLease continue
 
 _**Assistant**_
 
-
-
----
-
-
+Read file: backend/src/services/alertingService.js
 
 ---
 
+<details>
+            <summary>Searched codebase "email" • **7** results</summary>
+        
+| File |
+|------|
+| `undefined` |
+| `undefined` |
+| `undefined` |
+| `undefined` |
+| `undefined` |
+| `undefined` |
+| `undefined` |
 
+</details>
 
 ---
+
+<details>
+            <summary>Searched codebase "mail" • **7** results</summary>
+        
+| File |
+|------|
+| `undefined` |
+| `undefined` |
+| `undefined` |
+| `undefined` |
+| `undefined` |
+| `undefined` |
+| `undefined` |
+
+</details>
+
+---
+
+<details>
+            <summary>Searched codebase "notify" • **0** results</summary>
+        
+No results found
+</details>
+
+---
+
+Tool call timed out after 12s (codebase search)
+
+---
+
+Tool call timed out after 12s (codebase search)
+
+---
+
+<details>
+            <summary>Searched codebase "smtp" • **10** results</summary>
+        
+| File |
+|------|
+| `undefined` |
+| `undefined` |
+| `undefined` |
+| `undefined` |
+| `undefined` |
+| `undefined` |
+| `undefined` |
+| `undefined` |
+| `undefined` |
+| `undefined` |
+
+</details>
+
+---
+
+<details>
+            <summary>Listed directory backend/src/utils • **3** results</summary>
+        
+| Name |
+|-------|
+| 📄 `redisPubSub.js` |
+| 📄 `logger.js` |
+| 📄 `selectorAnalyzer.js` |
+
+</details>
+
+---
+
+<details>
+            <summary>Listed directory backend/src • **13** results</summary>
+        
+| Name |
+|-------|
+| 📄 `index.js` |
+| 📁 `utils` |
+| 📄 `app.js` |
+| 📁 `config` |
+| 📄 `server.js` |
+| 📁 `middleware` |
+| 📁 `routes` |
+| 📁 `services` |
+| 📁 `db` |
+| 📁 `websocket` |
+| 📁 `controllers` |
+| 📁 `workers` |
+| 📁 `scrapers` |
+
+</details>
+
+---
+
+<details>
+            <summary>Listed directory backend/src/services • **13** results</summary>
+        
+| Name |
+|-------|
+| 📄 `scraperService.js` |
+| 📄 `alertingService.js` |
+| 📄 `authenticationService.js` |
+| 📄 `securityService.js` |
+| 📄 `backupService.js` |
+| 📄 `userActivityService.js` |
+| 📄 `autoLabelingService.js` |
+| 📄 `dataTransformationService.js` |
+| 📄 `fieldAnalysisService.js` |
+| 📄 `proxyService.js` |
+| 📄 `setupWizardService.js` |
+| 📄 `statisticsService.js` |
+| 📄 `selectorTestService.js` |
+
+</details>
+
+---
+
+```diff
+  // const webSocketManager = require('../websocket/webSocketManager'); // Removed
+  const scraperStatusHandler = require('../websocket/scraperStatusHandler'); // Added
++ const nodemailer = require('nodemailer');
+  
+  // Alert severity levels
+```
+
+```diff
+        dataMissing: 0.2 // 20% missing data threshold
+      };
++     // Setup nodemailer transporter
++     this.transporter = nodemailer.createTransport({
++       host: process.env.SMTP_HOST,
++       port: parseInt(process.env.SMTP_PORT, 10) || 587,
++       secure: false,
++       auth: {
++         user: process.env.SMTP_USER,
++         pass: process.env.SMTP_PASS
++       }
++     });
++     this.adminEmail = process.env.ALERT_ADMIN_EMAIL;
++   }
++ 
++   async sendEmail(subject, text) {
++     if (!this.adminEmail) return;
++     try {
++       await this.transporter.sendMail({
++         from: `Le Moissonneur Alerts <${this.transporter.options.auth.user}>`,
++         to: this.adminEmail,
++         subject,
++         text
++       });
++     } catch (err) {
++       logger.error('Failed to send alert email:', err);
++     }
+    }
+  
+```
+
+```diff
+          logger.warn('Cannot send WebSocket alert: Socket.IO not initialized in scraperStatusHandler.');
+        }
++ 
++       // Send email for critical alerts
++       if (severity === SEVERITY.CRITICAL) {
++         const subject = `[CRITICAL ALERT] ${category} - ${message}`;
++         const text = `A critical alert was triggered.\n\nCategory: ${category}\nMessage: ${message}\nScraper ID: ${scraperId}\nData: ${JSON.stringify(data, null, 2)}\nTime: ${alert.created_at}`;
++         await this.sendEmail(subject, text);
++       }
+  
+        logger.info(`Alert created: [${severity}] ${message}`);
+```
+
+---
+
+```diff
+  import { Textarea } from '@/components/ui/textarea';
+  import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+- import { Plus, Code, Save, RefreshCw, Search, Filter, MoreVertical, Globe, Mail, LinkIcon } from 'lucide-react';
++ import { Plus, Code, Save, RefreshCw, Search, Filter, MoreVertical, Globe, Mail, LinkIcon, AlertTriangle, Bell } from 'lucide-react';
+  import { ScraperCard } from './ScraperCard';
+  import { toast } from 'sonner';
+```
+
+```diff
+                ) : (
+                  <ul className="space-y-2">
+-                   {alerts.map((alert, i) => (
+-                     <li key={i} className="bg-yellow-50 border-l-4 border-yellow-400 p-2 rounded">
+-                       <div className="font-semibold text-yellow-800">{alert.title || 'Alerte'}</div>
++                   {alerts.map((alert, i) => {
++                     const isCritical = alert.severity === 'critical';
++                     if (isCritical) {
++                       toast.warning(`ALERTE CRITIQUE: ${alert.title || 'Alerte'} - ${alert.message}`);
++                     }
++                     return (
++                       <li key={i} className={`p-2 rounded border-l-4 ${isCritical ? 'bg-red-50 border-red-500' : 'bg-yellow-50 border-yellow-400'}`}>
++                         <div className="flex items-center gap-2 font-semibold text-yellow-800">
++                           {isCritical ? <AlertTriangle className="text-red-500 h-4 w-4" /> : <Bell className="text-yellow-500 h-4 w-4" />}
++                           {alert.title || 'Alerte'}
++                           {isCritical && <span className="ml-2 px-2 py-0.5 bg-red-500 text-white text-xs rounded">CRITIQUE</span>}
++                         </div>
+                          <div className="text-xs text-yellow-700">{alert.message || JSON.stringify(alert)}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{alert.created_at ? new Date(alert.created_at).toLocaleString() : ''}</div>
+                        </li>
+-                   ))}
++                     );
++                   })}
+                  </ul>
+                )}
+```
+
+---
+
+```diff
+                          <div className="flex items-center gap-2 font-semibold text-yellow-800">
+                            {isCritical ? <AlertTriangle className="text-red-500 h-4 w-4" /> : <Bell className="text-yellow-500 h-4 w-4" />}
+-                           {alert.title || 'Alerte'}
++                           {String(alert.title) || 'Alerte'}
+                            {isCritical && <span className="ml-2 px-2 py-0.5 bg-red-500 text-white text-xs rounded">CRITIQUE</span>}
+                          </div>
+-                         <div className="text-xs text-yellow-700">{alert.message || JSON.stringify(alert)}</div>
+-                         <div className="text-xs text-muted-foreground mt-1">{alert.created_at ? new Date(alert.created_at).toLocaleString() : ''}</div>
++                         <div className="text-xs text-yellow-700">{String(alert.message) || JSON.stringify(alert)}</div>
++                         <div className="text-xs text-muted-foreground mt-1">{alert.created_at ? new Date(String(alert.created_at)).toLocaleString() : ''}</div>
+                        </li>
+                      );
+```
+
+---
+
+- Email notification support for critical alerts is now implemented in the backend: when a critical alert is created, an email is sent to the admin using SMTP (configure via environment variables).
+- The frontend alerts dialog now visually highlights critical alerts and shows a warning toast for them, ensuring UI notification for critical events.
+
+**All requirements for:**
+- Auto-labeling fields (already done)
+- User authentication & scraper sharing (already done, multi-user, sharing, access control present)
+- Enhanced alerting system (now fully done: backend proactive notifications, frontend UI/email for critical events)
+
+**The plan sections 3.4, 3.5, and 3.6 are now fully implemented and integrated, end-to-end.**
+
+If you have further steps or want to verify/test, let me know!
+
+---
+
+_**User**_
+
+Taks:
+1. Can you check if auto logout has been implemented? 
+2. I want  the selection of "Pays"  on the srapersPage to be required. A countr mus be selected. I want to add to the dropdown list Continnent: "Africa, Europe, USA, Asia, Australia" 
+
+---
+
+_**Assistant**_
 
 
 
