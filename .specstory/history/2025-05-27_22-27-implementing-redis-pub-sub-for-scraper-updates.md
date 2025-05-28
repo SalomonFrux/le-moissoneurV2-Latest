@@ -5848,9 +5848,286 @@ _**User**_
 
 _**Assistant**_
 
+```diff
+                  ))}
+                </div>
++               <Accordion type="single" collapsible className="mt-4 border rounded-lg bg-white">
++                 <AccordionItem value="pagination">
++                   <AccordionTrigger className="text-base font-semibold px-4 py-2">Pagination (optionnelle)</AccordionTrigger>
++                   <AccordionContent className="p-4 border-t bg-gray-50">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Pagination</label>
+```
+
+```diff
+                              <SelectItem value="nextButton">Bouton Suivant</SelectItem>
+                              <SelectItem value="numberLinks">Liens Numérotés</SelectItem>
+-                       <SelectItem value="loadMore">Bouton "Charger plus"</SelectItem>
++                             <SelectItem value="loadMore">Bouton \"Charger plus\"</SelectItem>
+                            </SelectContent>
+                          </Select>
+```
+
+```diff
+                        </div>
+                      </div>
+-             {/*   <div className="space-y-2">
+-                 <label htmlFor="frequency" className="text-sm font-medium">Fréquence</label>
+-                 <Select 
+-                   value={formData.frequency || 'manual'}
+-                   onValueChange={(value: 'daily' | 'weekly' | 'monthly' | 'manual') => handleInputChange('frequency', value)}
+-                 >
+-                   <SelectTrigger>
+-                     <SelectValue placeholder="Sélectionnez une fréquence" />
+-                   </SelectTrigger>
+-                   <SelectContent>
+-                     <SelectItem value="manual">Manuel uniquement</SelectItem>
+-                     <SelectItem value="daily">Quotidien</SelectItem>
+-                     <SelectItem value="weekly">Hebdomadaire</SelectItem>
+-                     <SelectItem value="monthly">Mensuel</SelectItem>
+-                   </SelectContent>
+-                 </Select>
+-               </div> */}
+-               <div className="space-y-2">
+-                 <label htmlFor="country" className="text-sm font-medium">Pays</label>
+-                 <Select
+-                   value={formData.country || ''}
+-                   onValueChange={(value) => handleInputChange('country', value)}
+-                   required
+-                 >
+-                   <SelectTrigger>
+-                     <SelectValue placeholder="Sélectionnez un pays ou un continent" />
+-                   </SelectTrigger>
+-                   <SelectContent className="max-h-64 overflow-y-auto">
+-                     {countries.map((country) => (
+-                       <SelectItem key={country} value={country}>{country}</SelectItem>
+-                     ))}
+-                   </SelectContent>
+-                 </Select>
+-               </div>
+-               <Accordion type="single" collapsible className="mt-4 border rounded-lg bg-white">
++                   </AccordionContent>
++                 </AccordionItem>
+                  <AccordionItem value="child-selectors">
+                    <AccordionTrigger className="text-base font-semibold px-4 py-2">Sélecteurs enfants</AccordionTrigger>
+```
+
+---
+
+1. **The "Tester" button for "Sélecteurs principaux" now works again**—the modal will open as expected when clicked.
+2. **Pagination is now in an expandable/collapsible section** (Accordion), making it optional and keeping the form cleaner.
+
+You can now test selectors as before, and the pagination config is visually separated and optional. If you want further UI/UX tweaks or backend changes, let me know!
+
+---
+
+_**User**_
+
+let's fix this: 
+When I run a scraper I get: 1|scraper-worker  | error: Failed to insert scraping_jobs record: undefined {"metadata":{},"timestamp":"2025-05-28 19:36:37:3637"
+So I checked supabase logs and saw: 
+
+The Supabase logs showing a POST .../rest/v1/scraping_jobs resulting in a 404 Not Found is a strong clue. This means the API endpoint for the scraping_jobs table isn't being found.
+
+Even if the table was created, there might be a subtle issue with its name, schema location, or API visibility.
+
+I did this recenlty: ALTER TABLE scrapers
+ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
+
+ALTER TABLE scrapers ADD COLUMN IF NOT EXISTS config JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+And RLS are enable in scrapers, scraped_data and profiles. 
+
+
 
 
 ---
+
+_**Assistant**_
+
+<details>
+            <summary>Searched codebase "scraping_jobs|scrapingJobs|job history|insert into scraping_jobs|supabase" • **25** results</summary>
+        
+| File | Lines |
+|------|-------|
+| `backend/src/db/schema.sql` | L1-56 |
+| `backend/src/controllers/scraperController.js` | L743-763 |
+| `backend/src/services/scraperService.js` | L135-172 |
+| `backend/src/services/scraperService.js` | L340-391 |
+| `backend/src/services/scraperService.js` | L391-453 |
+| `backend/src/services/fieldAnalysisService.js` | L7-37 |
+| `backend/src/services/scraperService.js` | L299-340 |
+| `backend/src/services/scraperService.js` | L491-517 |
+| `backend/src/workers/scraperWorker.js` | L1-56 |
+| `backend/src/db/schema.sql` | L56-96 |
+| `backend/src/services/scraperService.js` | L453-491 |
+| `backend/worker.js` | L2-10 |
+| `backend/src/services/statisticsService.js` | L1-51 |
+| `backend/src/controllers/scraperController.js` | L1-60 |
+| `backend/worker.js` | L10-68 |
+| `backend/src/controllers/companyController.js` | L1-36 |
+| `backend/src/services/scraperService.js` | L172-206 |
+| `backend/src/services/scraperService.js` | L266-299 |
+| `backend/src/routes/scraperRoutes.js` | L53-56 |
+| `backend/src/controllers/scraperController.js` | L197-244 |
+| `backend/src/db/supabase.js` | L12-38 |
+| `backend/src/services/statisticsService.js` | L98-139 |
+| `backend/src/services/statisticsService.js` | L51-98 |
+| `backend/src/controllers/scraperController.js` | L60-103 |
+| `backend/src/scrapers/genericScraper.js` | L1-9 |
+
+</details>
+
+---
+
+Read file: backend/src/db/schema.sql
+
+---
+
+Here’s a clear diagnosis and solution for your `scraping_jobs` 404/insert error:
+
+---
+
+### **Diagnosis**
+
+#### 1. **Table Exists**
+- Your `scraping_jobs` table **does exist** in the schema and is correctly defined.
+
+#### 2. **404 Not Found from Supabase REST API**
+- A 404 from Supabase REST (`/rest/v1/scraping_jobs`) means the table is not exposed to the Supabase auto-generated REST API.
+- This is **not** a SQL/database error, but an API visibility/configuration issue.
+
+#### 3. **Possible Causes**
+- **Table is not in the `public` schema** (Supabase REST only exposes tables in the `public` schema by default).
+- **RLS (Row Level Security) is enabled** but no policy allows inserts for your service key or the user context.
+- **Table name typo** (but your schema and code both use `scraping_jobs`).
+
+#### 4. **Recent Changes**
+- You added columns to `scrapers`, but not to `scraping_jobs`. This is unrelated to the 404, but RLS changes could affect it.
+
+---
+
+### **How to Fix**
+
+#### **A. Check Table Schema**
+- Make sure `scraping_jobs` is in the `public` schema:
+  ```sql
+  select table_schema, table_name from information_schema.tables where table_name = 'scraping_jobs';
+  ```
+  - If not, move it to `public` or recreate it there.
+
+#### **B. Expose Table to Supabase REST**
+- In the Supabase dashboard, go to **Table Editor** > **scraping_jobs**.
+- Make sure it is in the `public` schema.
+- If you see a “Hide from API” toggle, make sure it is **not hidden**.
+
+#### **C. RLS Policy**
+- If RLS is enabled, you **must** have a policy that allows inserts for your backend/service key or the relevant user.
+- Example policy to allow service key (for backend jobs):
+  ```sql
+  -- Allow service role to insert
+  create policy "Allow service role insert"
+    on public.scraping_jobs
+    for insert
+    to service_role
+    using (true);
+  ```
+- Or, for all authenticated users (for testing):
+  ```sql
+  create policy "Allow all inserts"
+    on public.scraping_jobs
+    for insert
+    using (true);
+  ```
+- **Enable RLS** if not already enabled:
+  ```sql
+  alter table public.scraping_jobs enable row level security;
+  ```
+
+#### **D. Test Insert**
+- Try inserting a record using the Supabase SQL editor or REST API explorer.
+- If it works, your backend should now be able to insert as well.
+
+---
+
+### **Summary Table**
+
+| Problem                | Solution                                                                 |
+|------------------------|--------------------------------------------------------------------------|
+| 404 Not Found (REST)   | Table not in `public` schema, or hidden from API, or RLS blocks insert   |
+| RLS enabled            | Add an insert policy for service_role or your backend user               |
+| Table typo             | Double-check spelling: `scraping_jobs`                                   |
+
+---
+
+**After fixing the schema/policy, your backend should be able to insert into `scraping_jobs` and the error will disappear.**
+
+If you want the exact SQL to run, let me know your preferred policy (service key only, all users, etc.) and I’ll provide it!
+
+---
+
+_**User**_
+
+I can not see this table "scraping_jobs" in the public schema. can you please write te query here to create it ? and the I will myself update the schema.sql if the querry works? 
+
+---
+
+_**Assistant**_
+
+Certainly! Here is the SQL to create the `scraping_jobs` table in the `public` schema, matching your previous schema and ready for Supabase:
+
+```sql
+create table if not exists public.scraping_jobs (
+    id uuid primary key default uuid_generate_v4(),
+    scraper_id uuid references public.scrapers(id),
+    job_id text not null,
+    status text not null default 'queued',
+    total_pages integer default 0,
+    total_items integer default 0,
+    error_message text,
+    started_at timestamp with time zone default now(),
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone default now()
+);
+
+-- Enable Row Level Security (RLS)
+alter table public.scraping_jobs enable row level security;
+
+-- Example RLS policy: allow service_role to insert (for backend jobs)
+create policy "Allow service role insert"
+    on public.scraping_jobs
+    for insert
+    to service_role
+    using (true);
+
+-- (Optional) Index for faster queries by status
+create index if not exists idx_scraping_jobs_status on public.scraping_jobs(status);
+```
+
+**Instructions:**
+- Run this SQL in the Supabase SQL editor.
+- If you want to allow all authenticated users to insert (for testing), you can use:
+  ```sql
+  create policy "Allow all inserts"
+    on public.scraping_jobs
+    for insert
+    using (true);
+  ```
+
+**After running this, your backend should be able to insert into `scraping_jobs` and the 404 will be resolved.**
+
+Let me know if you want a policy for select/update/delete as well!
+
+---
+
+_**User**_
+
+this is a supabase query please avoid error:
+ERROR:  42601: only WITH CHECK expression allowed for INSERT
+
+---
+
+_**Assistant**_
 
 
 

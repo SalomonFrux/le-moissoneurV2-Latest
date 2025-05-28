@@ -335,7 +335,7 @@ async function executeScraper(scraper, jobId = null) {
           .insert(dataToInsert);
 
         if (insertError) {
-          throw new Error(`Failed to store scraped data: ${insertError.message}`);
+  logger.error('Failed to insert scraping_jobs record. Error object:', jobInsertError);
         }
       });
 

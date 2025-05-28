@@ -555,3 +555,14 @@ Call log:
 {"level":"error","message":"Error creating scraper: Could not find the 'version' column of 'scrapers' in the schema cache","metadata":{"metadata":{}},"timestamp":"2025-05-28 17:31:10:3110"}
 {"level":"error","message":"Failed to insert scraping_jobs record: undefined","metadata":{"metadata":{}},"timestamp":"2025-05-28 18:52:52:5252"}
 {"level":"error","message":"Error getting next proxy for scraper 66f5dee9-9098-41bb-a856-4f1eae0b5944: column scrapers.config does not exist","metadata":{"metadata":{"code":"42703","details":null,"hint":null}},"timestamp":"2025-05-28 18:52:53:5253"}
+{"level":"error","message":"Failed to insert scraping_jobs record: undefined","metadata":{"metadata":{}},"timestamp":"2025-05-28 19:02:27:227"}
+{"level":"error","message":"Error getting next proxy for scraper 66f5dee9-9098-41bb-a856-4f1eae0b5944: column scrapers.config does not exist","metadata":{"metadata":{"code":"42703","details":null,"hint":null}},"timestamp":"2025-05-28 19:02:27:227"}
+{"level":"error","message":"Failed to insert scraping_jobs record: undefined","metadata":{"metadata":{}},"timestamp":"2025-05-28 19:08:27:827"}
+{"level":"error","message":"Error getting next proxy for scraper 66f5dee9-9098-41bb-a856-4f1eae0b5944: column scrapers.config does not exist","metadata":{"metadata":{"code":"42703","details":null,"hint":null}},"timestamp":"2025-05-28 19:08:28:828"}
+{"level":"error","message":"Failed to insert scraping_jobs record: undefined","metadata":{"metadata":{}},"timestamp":"2025-05-28 19:11:04:114"}
+{"level":"error","message":"Error getting next proxy for scraper 74210a17-4697-4725-bade-3d42bb92a4a7: column scrapers.config does not exist","metadata":{"metadata":{"code":"42703","details":null,"hint":null}},"timestamp":"2025-05-28 19:11:04:114"}
+{"level":"error","message":"Failed to insert scraping_jobs record: undefined","metadata":{"metadata":{}},"timestamp":"2025-05-28 19:25:49:2549"}
+{"level":"error","message":"Failed to insert scraping_jobs record: undefined","metadata":{"metadata":{}},"timestamp":"2025-05-28 19:33:34:3334"}
+{"level":"error","message":"Failed to insert scraping_jobs record: undefined","metadata":{"metadata":{}},"timestamp":"2025-05-28 19:36:37:3637"}
+{"level":"error","message":"Failed to insert scraping_jobs record: undefined","metadata":{"metadata":{}},"timestamp":"2025-05-28 19:41:28:4128"}
+{"level":"error","message":"Error deleting scraper 15efdbb9-5253-492a-b561-5eeecaa50fb1: update or delete on table \"scrapers\" violates foreign key constraint \"alerts_scraper_id_fkey\" on table \"alerts\"","metadata":{"metadata":{}},"timestamp":"2025-05-28 20:04:40:440"}

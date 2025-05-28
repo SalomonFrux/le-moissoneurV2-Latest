@@ -214,3 +214,9 @@ SELECT 'Schema setup complete. Remember to add users to auth.users via Supabase 
             role = EXCLUDED.role, 
             last_login = EXCLUDED.last_login, 
             updated_at = NOW(); 
+
+--If that does not run at once, you can run it in parts:
+ALTER TABLE scrapers
+ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
+
+ALTER TABLE scrapers ADD COLUMN IF NOT EXISTS config JSONB NOT NULL DEFAULT '{}'::jsonb;
