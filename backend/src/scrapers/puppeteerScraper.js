@@ -71,21 +71,41 @@ async function puppeteerScraper(url, selectors, scraperId) {
 
     let currentUrl = url;
     while (hasNextPage && (pageNum <= (parseInt(process.env.MAX_PAGES_PER_SCRAPE, 10) || 50))) {
-      logger.info(`Puppeteer: Scraping page ${pageNum}: ${currentUrl || 'URL not defined'}`);
+      // logger.info(`Puppeteer: Scraping page ${pageNum}: ${currentUrl || 'URL not defined (at top of loop)'}`); // Original log, can be removed or kept
+
+      // Check currentUrl's validity for navigation BEFORE sending status or attempting goto
+      if (!currentUrl || typeof currentUrl !== 'string' || currentUrl.trim() === '') {
+        const logMessage = `Puppeteer: Invalid or empty currentUrl ('${currentUrl}') for page ${pageNum}. Ending pagination.`;
+        logger.warn(logMessage);
+        hasNextPage = false;
+        scraperStatusHandler.sendStatus(scraperId, {
+            status: 'running', // Consider 'warning' or 'error' if this is unexpected
+            currentPage: pageNum,
+            totalItems: results.length,
+            type: 'warning',
+            message: `Puppeteer: Invalid or missing URL for page ${pageNum}. Cannot proceed with navigation.`
+        });
+        continue; // Skip to next iteration of while loop, which should then terminate due to hasNextPage
+      }
+
+      // If currentUrl is valid (non-empty string), proceed to build status message and navigate
+      const displayUrl = currentUrl.substring(0, 100); // currentUrl is now guaranteed to be a non-empty string
+
+      // This is where line 76 (original) was, now using the validated and prepared displayUrl
       scraperStatusHandler.sendStatus(scraperId, {
-        status: 'running', 
-        currentPage: pageNum, 
-        totalItems: results.length, 
-        type: 'info', 
-        message: `Puppeteer: Navigating to page ${pageNum}: ${(currentUrl || 'N/A').substring(0,100)}...`
+        status: 'running',
+        currentPage: pageNum,
+        totalItems: results.length,
+        type: 'info',
+        message: `Puppeteer: Navigating to page ${pageNum}: ${displayUrl}...`
       });
+      
+      // The logger.info for scraping page can also use the validated currentUrl
+      logger.info(`Puppeteer: Scraping page ${pageNum}: ${currentUrl}`);
+
 
       try {
-        if (!currentUrl) {
-          logger.warn('Puppeteer: currentUrl is undefined, cannot navigate. Ending pagination.');
-          hasNextPage = false;
-          continue;
-        }
+        // The 'if (!currentUrl)' check that was here previously is now handled by the more comprehensive check above.
         logger.info(`Puppeteer: Attempting page.goto(\'${currentUrl}\')`);
         const response = await page.goto(currentUrl, { waitUntil: 'domcontentloaded' });
         if (response) {

@@ -359,8 +359,27 @@ async function playwrightScraper(url, config, scraperId) {
           let mainElements = [];
 
           // Adapt for config.main being a string or an object with a selectors array
-          const mainSelectorConfigs = Array.isArray(config.main?.selectors) ? config.main.selectors :
-                                      (typeof config.main === 'string' ? [{ type: 'css', value: config.main }] : []);
+          let mainSelectorConfigs = [];
+          if (config.main) {
+            if (typeof config.main === 'string') {
+              mainSelectorConfigs = [{ type: 'css', value: config.main }];
+            } else if (typeof config.main === 'object') {
+              if (Array.isArray(config.main.selectors)) {
+                mainSelectorConfigs = config.main.selectors;
+              } else if (typeof config.main.selectors === 'string') {
+                mainSelectorConfigs = [{ type: 'css', value: config.main.selectors }];
+              } else {
+                // If config.main.selectors is undefined, null, or some other type,
+                // mainSelectorConfigs will remain empty, or you could default to using config.main.value if it exists
+                if (typeof config.main.value === 'string') {
+                   mainSelectorConfigs = [{ type: 'css', value: config.main.value }];
+                } else {
+                   mainSelectorConfigs = []; // Default to empty if no valid selector found
+                }
+              }
+            }
+          }
+          // console.log('Evaluated mainSelectorConfigs:', JSON.stringify(mainSelectorConfigs));
 
           for (const mainSelectorConfig of mainSelectorConfigs) {
             if (typeof mainSelectorConfig.value !== 'string') continue; // Skip if no valid selector value

@@ -4957,21 +4957,896 @@ Taks:
 
 _**Assistant**_
 
+Tool call timed out after 12s (codebase search)
+
+---
+
+<details>
+            <summary>Searched codebase "logout|auto logout|inactivityService|auto sign out|inactivity logout" • **25** results</summary>
+        
+| File | Lines |
+|------|-------|
+| `backend/src/middleware/sessionTimeout.js` | L1-28 |
+| `backend/src/controllers/authController.js` | L206-241 |
+| `backend/src/services/authenticationService.js` | L1-13 |
+| `backend/src/services/authenticationService.js` | L66-89 |
+| `backend/src/services/userActivityService.js` | L93-113 |
+| `backend/src/services/authenticationService.js` | L89-122 |
+| `backend/src/services/authenticationService.js` | L122-130 |
+| `backend/src/services/userActivityService.js` | L1-12 |
+| `backend/src/services/setupWizardService.js` | L251-266 |
+| `backend/src/services/userActivityService.js` | L49-93 |
+| `backend/src/services/authenticationService.js` | L47-66 |
+| `backend/src/db/migrations/05_user_activity_tracking.sql` | L107-128 |
+| `backend/src/services/userActivityService.js` | L157-204 |
+| `backend/src/services/authenticationService.js` | L181-228 |
+| `backend/src/services/userActivityService.js` | L12-49 |
+| `backend/src/services/userActivityService.js` | L204-229 |
+| `backend/src/services/userActivityService.js` | L229-231 |
+| `backend/src/services/securityService.js` | L134-159 |
+| `backend/src/services/userActivityService.js` | L113-157 |
+| `backend/src/app.js` | L1-27 |
+| `backend/src/middleware/sessionTimeout.js` | L28-30 |
+| `backend/src/app.js` | L39-50 |
+| `backend/src/services/authenticationService.js` | L153-181 |
+| `backend/src/middleware/activityTracker.js` | L1-71 |
+| `backend/src/app.js` | L50-53 |
+
+</details>
+
+---
+
+Read file: frontend/src/services/authService.ts
+
+---
+
+<details>
+            <summary>Searched codebase "inactivityService" • **1** results</summary>
+        
+| File |
+|------|
+| `undefined` |
+
+</details>
+
+---
+
+Read file: frontend/src/services/inactivityService.ts
+
+---
+
+```diff
+  import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+  
++ const continents = [
++   'Africa', 'Europe', 'USA', 'Asia', 'Australia'
++ ];
+  const countries = [
++   ...continents,
+    "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia", "Cameroon", "Canada", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo, Democratic Republic of the", "Congo, Republic of the", "Costa Rica", "Cote d'Ivoire", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Korea, North", "Korea, South", "Kosovo", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Macedonia", "Norway", "Oman", "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
+  ];
+```
+
+```diff
+        return;
+      }
++     if (!formData.country || formData.country === '') {
++       toast.error('Le pays ou le continent est requis');
++       return;
++     }
+  
+      try {
+```
+
+```diff
+                    value={formData.country || ''}
+                    onValueChange={(value) => handleInputChange('country', value)}
++                   required
+                  >
+                    <SelectTrigger>
+-                     <SelectValue placeholder="Sélectionnez un pays" />
++                     <SelectValue placeholder="Sélectionnez un pays ou un continent" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-64 overflow-y-auto">
+```
+
+---
+
+Here are the results and changes made for your requests:
+
+---
+
+### 1. **Auto Logout Check**
+
+**Status:**  
+✅ **Auto logout is implemented.**
+
+- The frontend uses an `inactivityService` that listens for user inactivity (no mouse, keyboard, scroll, or touch events).
+- After 29 minutes of inactivity, a warning toast is shown.
+- After 30 minutes, the user is automatically logged out, a destructive toast is shown, and the user is redirected to the login page.
+- The timer is reset on any user activity, and stopped on manual logout.
+
+---
+
+### 2. **Country Selection Required + Continents in Dropdown**
+
+**Status:**  
+✅ **Implemented as requested.**
+
+- The "Pays" (Country) dropdown in the Scraper creation/edit form is now required.
+- The dropdown now includes the continents: **Africa, Europe, USA, Asia, Australia** at the top, followed by the full country list.
+- Form submission is blocked and a toast error is shown if no country or continent is selected.
+
+---
+
+**You now have:**
+- Secure auto-logout for inactivity.
+- Required country/continent selection with continent options in the dropdown.
+
+If you need further tweaks or want to enforce this requirement elsewhere (e.g., filters), let me know!
+
+---
+
+_**User**_
+
+Oky, let's updated certain part of the app. 
+1. I do not want to user to define max page at @ScrapersPage.tsx.  Is there a better way  for the system to stop once the pagination is no more. (without the user providing the number for the pagination)? something like an Automatic Pagination Stop (Without User-Defined maxPages).
+
+How it Works:
+
+When the scraper is configured with a "Next Button" selector, after scraping each page, it will try to find that "Next" button again.
+If the button is no longer found on the page (e.g., you're on the last page, and there's no "Next" link), the scraper concludes that pagination has ended and stops processing further pages.
+Some websites disable the "Next" button on the last page instead of removing it. A robust scraper can also check if the button is disabled (e.g., has a disabled attribute or a specific class indicating it's inactive) and stop in that case too.
+Implications & Backend Safety:
+
+No User Input for maxPages: Your UI will remove this field.
+Backend Failsafe (Highly Recommended): Even if the user doesn't set maxPages, it's a very good practice for the backend scraping logic to have an internal, non-user-configurable, high "emergency stop" limit (e.g., 500 or 1000 pages). This prevents truly infinite loops if:
+The "Next Button" selector is incorrect and always finds something.
+The target website has a bug and the "Next" button never disappears or disables correctly. This emergency limit is a safety net for your system resources and to avoid getting banned.
+So, for the UI part, we'll remove the maxPages input. The backend will need to be adapted to rely on selector presence/state and incorporate an internal failsafe
+
+2. Please I want the form or main card "Créer un nouveau scraper" not the whole page, just this form (Créer un nouveau scraper) that move up whrn we click on "Nouveau Scraper" @ScrapersPage.tsx to be well presented (NB: Only the desing not the logic for now). What to do:
+
+2.1 Since the user will no longer provide a number for pagination that fiel or input should disapear.
+
+2.2 "Sélecteurs enfants card" with all the "email, phone , website, select..." should kind of be expandable or a similar better idea.
+
+2.3 " Règles de transformation des champs" should also be expandable or a similar better idea. Which means the "Créer un nouveau scraper" main card will have "Nom du scraper", "URL de la source", "Sélecteurs principaux" "Pagination" (only the button input) , "Moteur de scraping" "Fréquence" and pays display will stay  as thy are at the moment.
+
 
 
 ---
 
+_**Assistant**_
 
+```diff
+                      </SelectContent>
+                    </Select>
+-                   <Input
+-                     type="number"
+-                     className="w-24"
+-                     min={1}
+-                     max={1000}
+-                     value={formData.paginationConfig.maxPages}
+-                     onChange={e => handleInputChange('paginationConfig.maxPages', Number(e.target.value))}
+-                     placeholder="Pages max"
+-                   />
+                    {formData.paginationConfig.type === 'loadMore' && (
+                      <Input
+```
 
 ---
 
+```diff
+  import { ScraperProgress } from '@/components/scraper/ScraperProgress';
+  import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
++ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+  
+  const continents = [
+```
 
+```diff
+  
+        {showForm && (
+-         <Card ref={formRef}>
++         <Card ref={formRef} className="max-w-3xl mx-auto shadow-xl border border-gray-200 rounded-lg mt-8 animate-slideDown">
+            <form onSubmit={handleSubmit}>
+-             <CardHeader>
+-               <CardTitle>Créer un nouveau scraper</CardTitle>
+-               <CardDescription>
+-                 Configurez un nouveau scraper pour collecter des données d'une source en ligne.
+-               </CardDescription>
++             <CardHeader className="bg-gradient-to-r from-[#f8fafc] to-[#e0e7ef] rounded-t-lg border-b border-gray-100">
++               <CardTitle className="text-2xl font-bold mb-1">Créer un nouveau scraper</CardTitle>
++               <CardDescription className="text-muted-foreground">Configurez un nouveau scraper pour collecter des données d'une source en ligne.</CardDescription>
+              </CardHeader>
+-             <CardContent className="space-y-4">
+-               <div className="grid grid-cols-2 gap-4">
++             <CardContent className="space-y-6 p-6">
++               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label htmlFor="name" className="text-sm font-medium">Nom du scraper</label>
+-                   <Input 
+-                     id="name" 
+-                     placeholder="Ex: FADEV Scraper" 
+-                     value={formData.name}
+-                     onChange={(e) => handleInputChange('name', e.target.value)}
+-                     required
+-                   />
++                   <Input id="name" placeholder="Ex: FADEV Scraper" value={formData.name} onChange={(e) => handleInputChange('name', e.target.value)} required />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="source" className="text-sm font-medium">URL de la source</label>
+-                   <Input 
+-                     id="source" 
+-                     placeholder="Ex: https://fadev.org" 
+-                     value={formData.source}
+-                     onChange={(e) => handleInputChange('source', e.target.value)}
+-                     required
+-                   />
++                   <Input id="source" placeholder="Ex: https://fadev.org" value={formData.source} onChange={(e) => handleInputChange('source', e.target.value)} required />
+                  </div>
+                </div>
+- 
+-               {/* <div className="space-y-2">
+-                 <div className="flex items-center space-x-2">
+-                   <input
+-                     type="checkbox"
+-                     id="twoPhaseScraping"
+-                     checked={formData.twoPhaseScraping === 'true'}
+-                     onChange={(e) => handleInputChange('twoPhaseScraping', e.target.checked ? 'true' : 'false')}
+-                     className="rounded border-gray-300"
+-                   />
+-                   <label htmlFor="twoPhaseScraping" className="text-sm font-medium">
+-                     Scraping en deux phases (pour les données dans des dropdowns)
+-                   </label>
+-                 </div>
+-                 <p className="text-sm text-muted-foreground">
+-                   Activez cette option si les données sont cachées derrière des dropdowns
+-                 </p>
+-               </div> */}
+- 
+-               {/* Phase 1 Selectors */}
+-               {formData.twoPhaseScraping === 'true' && (
+-                  <div className="space-y-4">
+-                   <h3 className="text-lg font-medium">Phase 1 - Liste des entreprises</h3>
+-                   <div className="grid gap-4 md:grid-cols-2">
+-                     <div className="space-y-2">
+-                       <label htmlFor="phase1.name">Sélecteur du nom</label>
+-                       <Input
+-                         id="phase1.name"
+-                         value={formData.phase1Selectors.name}
+-                         onChange={(e) => handleInputChange('phase1.name', e.target.value)}
+-                         placeholder="Exemple: .company-name"
+-                       />
+-                     </div>
+-                     <div className="space-y-2">
+-                       <label htmlFor="phase1.dropdownTrigger">Sélecteur du déclencheur</label>
+-                       <Input
+-                         id="phase1.dropdownTrigger"
+-                         value={formData.phase1Selectors.dropdownTrigger}
+-                         onChange={(e) => handleInputChange('phase1.dropdownTrigger', e.target.value)}
+-                         placeholder="Exemple: .dropdown-trigger"
+-                       />
+-                     </div>
+-                   </div>
+-                 </div>
+-               )}
+- 
+-               {/* Phase 2 Selectors */}
+-               {formData.twoPhaseScraping === 'true' && (
+-                 <div className="space-y-4">
+-                   <h3 className="text-lg font-medium">Phase 2 - Détails de l'entreprise</h3>
+-                   <div className="grid gap-4 md:grid-cols-2">
+-                     <div className="space-y-2">
+-                       <label htmlFor="phase2.name">Sélecteur du nom</label>
+-                       <Input
+-                         id="phase2.name"
+-                         value={formData.phase2Selectors.name}
+-                         onChange={(e) => handleInputChange('phase2.name', e.target.value)}
+-                         placeholder="Exemple: .company-name"
+-                       />
+-                     </div>
+-                     <div className="space-y-2">
+-                       <label htmlFor="phase2.phone">Sélecteur du téléphone</label>
+-                       <Input
+-                         id="phase2.phone"
+-                         value={formData.phase2Selectors.phone}
+-                         onChange={(e) => handleInputChange('phase2.phone', e.target.value)}
+-                         placeholder="Exemple: .phone-number"
+-                       />
+-                     </div>
+-                     <div className="space-y-2">
+-                       <label htmlFor="phase2.email">Sélecteur de l'email</label>
+-                       <Input
+-                         id="phase2.email"
+-                         value={formData.phase2Selectors.email}
+-                         onChange={(e) => handleInputChange('phase2.email', e.target.value)}
+-                         placeholder="Exemple: .email-address"
+-                       />
+-                     </div>
+-                     <div className="space-y-2">
+-                       <label htmlFor="phase2.website">Sélecteur du site web</label>
+-                       <Input
+-                         id="phase2.website"
+-                         value={formData.phase2Selectors.website}
+-                         onChange={(e) => handleInputChange('phase2.website', e.target.value)}
+-                         placeholder="Exemple: .website-url"
+-                       />
+-                     </div>
+-                     <div className="space-y-2">
+-                       <label htmlFor="phase2.address">Sélecteur de l'adresse</label>
+-                       <Input
+-                         id="phase2.address"
+-                         value={formData.phase2Selectors.address}
+-                         onChange={(e) => handleInputChange('phase2.address', e.target.value)}
+-                         placeholder="Exemple: .address-text"
+-                       />
+-                     </div>
+-                   </div>
+-                 </div>
+-               )}
+- 
+-               {/* Main Selectors (dynamic array UI) */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Sélecteurs principaux</label>
+```
+
+```diff
+                  ))}
+                </div>
+- 
+-               {/* Pagination */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Pagination</label>
+```
+
+```diff
+                  </div>
+                </div>
+- 
+-               {/* Child Selectors (dynamic array UI) */}
+                <div className="space-y-2">
+-                 <label className="text-sm font-medium">Sélecteurs enfants</label>
+-                 <div className="grid grid-cols-2 gap-4">
++                 <label htmlFor="engine" className="text-sm font-medium">Moteur de scraping</label>
++                 <Select
++                   value={formData.engine}
++                   onValueChange={(value: 'playwright' | 'puppeteer') => handleInputChange('engine', value)}
++                 >
++                   <SelectTrigger>
++                     <SelectValue placeholder="Sélectionnez un moteur" />
++                   </SelectTrigger>
++                   <SelectContent>
++                     <SelectItem value="playwright">Playwright (recommandé)</SelectItem>
++                      <SelectItem value="puppeteer">Puppeteer</SelectItem> 
++                   </SelectContent>
++                 </Select>
++               </div>
++               <div className="space-y-2">
++                 <label htmlFor="frequency" className="text-sm font-medium">Fréquence</label>
++                 <Select 
++                   value={formData.frequency} 
++                   onValueChange={(value: 'daily' | 'weekly' | 'monthly' | 'manual') => handleInputChange('frequency', value)}
++                 >
++                   <SelectTrigger>
++                     <SelectValue placeholder="Sélectionnez une fréquence" />
++                   </SelectTrigger>
++                   <SelectContent>
++                     <SelectItem value="daily">Quotidien</SelectItem>
++                     <SelectItem value="weekly">Hebdomadaire</SelectItem>
++                     <SelectItem value="monthly">Mensuel</SelectItem>
++                     <SelectItem value="manual">Manuel uniquement</SelectItem>
++                   </SelectContent>
++                 </Select>
++               </div>
++               <div className="space-y-2">
++                 <label htmlFor="country" className="text-sm font-medium">Pays</label>
++                 <Select
++                   value={formData.country || ''}
++                   onValueChange={(value) => handleInputChange('country', value)}
++                   required
++                 >
++                   <SelectTrigger>
++                     <SelectValue placeholder="Sélectionnez un pays ou un continent" />
++                   </SelectTrigger>
++                   <SelectContent className="max-h-64 overflow-y-auto">
++                     {countries.map((country) => (
++                       <SelectItem key={country} value={country}>{country}</SelectItem>
++                     ))}
++                   </SelectContent>
++                 </Select>
++               </div>
++               <Accordion type="single" collapsible className="mt-4 border rounded-lg bg-white">
++                 <AccordionItem value="child-selectors">
++                   <AccordionTrigger className="text-base font-semibold px-4 py-2">Sélecteurs enfants</AccordionTrigger>
++                   <AccordionContent className="p-4 border-t bg-gray-50">
+                      {Object.entries(formData.childSelectors).map(([childField, selectors]) => (
+                        <div key={childField} className="space-y-1">
+```
+
+```diff
+                        </div>
+                      ))}
+-                 </div>
+-               </div>
+- 
+-               <div className="space-y-2">
+-                 <label className="text-sm font-medium">Règles de transformation des champs</label>
+-                 <table className="min-w-full text-xs border">
+-                   <thead>
+-                     <tr className="bg-gray-100">
+-                       <th className="p-2 border">Champ</th>
+-                       <th className="p-2 border">Transformations</th>
+-                       <th className="p-2 border">Actions</th>
+-                     </tr>
+-                   </thead>
+-                   <tbody>
++                   </AccordionContent>
++                 </AccordionItem>
++                 <AccordionItem value="transform-rules">
++                   <AccordionTrigger className="text-base font-semibold px-4 py-2">Règles de transformation des champs</AccordionTrigger>
++                   <AccordionContent className="p-4 border-t bg-gray-50">
+                      {Object.keys(formData.childSelectors).map(field => (
+                        <tr key={field}>
+```
+
+```diff
+                        </tr>
+                      ))}
+-                   </tbody>
+-                 </table>
+-               </div>
+- 
+-               <div className="space-y-2">
+-                 <label htmlFor="engine" className="text-sm font-medium">Moteur de scraping</label>
+-                 <Select
+-                   value={formData.engine}
+-                   onValueChange={(value: 'playwright' | 'puppeteer') => handleInputChange('engine', value)}
+-                 >
+-                   <SelectTrigger>
+-                     <SelectValue placeholder="Sélectionnez un moteur" />
+-                   </SelectTrigger>
+-                   <SelectContent>
+-                     <SelectItem value="playwright">Playwright (recommandé)</SelectItem>
+-                      <SelectItem value="puppeteer">Puppeteer</SelectItem> 
+-                   </SelectContent>
+-                 </Select>
+-               </div>
+- 
+-               <div className="space-y-2">
+-                 <label htmlFor="frequency" className="text-sm font-medium">Fréquence</label>
+-                 <Select 
+-                   value={formData.frequency} 
+-                   onValueChange={(value: 'daily' | 'weekly' | 'monthly' | 'manual') => handleInputChange('frequency', value)}
+-                 >
+-                   <SelectTrigger>
+-                     <SelectValue placeholder="Sélectionnez une fréquence" />
+-                   </SelectTrigger>
+-                   <SelectContent>
+-                     <SelectItem value="daily">Quotidien</SelectItem>
+-                     <SelectItem value="weekly">Hebdomadaire</SelectItem>
+-                     <SelectItem value="monthly">Mensuel</SelectItem>
+-                     <SelectItem value="manual">Manuel uniquement</SelectItem>
+-                   </SelectContent>
+-                 </Select>
+-               </div>
+- 
+-               <div className="space-y-2">
+-                 <label htmlFor="country" className="text-sm font-medium">Pays</label>
+-                 <Select
+-                   value={formData.country || ''}
+-                   onValueChange={(value) => handleInputChange('country', value)}
+-                   required
+-                 >
+-                   <SelectTrigger>
+-                     <SelectValue placeholder="Sélectionnez un pays ou un continent" />
+-                   </SelectTrigger>
+-                   <SelectContent className="max-h-64 overflow-y-auto">
+-                     {countries.map((country) => (
+-                       <SelectItem key={country} value={country}>{country}</SelectItem>
+-                     ))}
+-                   </SelectContent>
+-                 </Select>
+-               </div>
++                   </AccordionContent>
++                 </AccordionItem>
++               </Accordion>
+              </CardContent>
+-             <CardFooter className="flex justify-between">
+-               <Button 
+-                 type="button" 
+-                 variant="outline" 
+-                 onClick={handleCancel}
+-               >
+-                 Annuler
+-               </Button>
+-               <Button 
+-                 type="submit" 
+-                 className="bg-africa-green-500 hover:bg-africa-green-600"
+-                 disabled={loading}
+-               >
++             <CardFooter className="flex justify-between p-6 border-t bg-gradient-to-r from-[#f8fafc] to-[#e0e7ef] rounded-b-lg">
++               <Button type="button" variant="outline" onClick={handleCancel}>Annuler</Button>
++               <Button type="submit" className="bg-africa-green-500 hover:bg-africa-green-600" disabled={loading}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {loading ? 'Enregistrement...' : 'Enregistrer'}
+                </Button>
+              </CardFooter>
+            </form>
+-           {/* Selector Test Modal */}
+-           <Dialog open={testModal.open} onOpenChange={open => !open && closeTestModal()}>
+-             <DialogContent>
+-               <DialogHeader>
+-                 <DialogTitle>Tester le sélecteur</DialogTitle>
+-                 <DialogDescription>
+-                   Type: <b>{testModal.selectorType}</b> <br />
+-                   Valeur: <b>{testModal.selectorValue}</b>
+-                 </DialogDescription>
+-               </DialogHeader>
+-               <div className="space-y-2">
+-                 <Input
+-                   placeholder="URL de la page à tester"
+-                   value={testInput}
+-                   onChange={e => setTestInput(e.target.value)}
+-                 />
+-                 <Button type="button" onClick={handleTestSelector} disabled={testLoading || !testInput}>
+-                   {testLoading ? 'Test en cours...' : 'Lancer le test'}
+-                 </Button>
+-                 {testError && <div className="text-red-500 text-xs">{testError}</div>}
+-                 {testResult && typeof testResult === 'object' && 'matches' in testResult && (
+-                   <div className="mt-2 text-sm text-muted-foreground">
+-                     <div>Éléments trouvés : <b>{testResult.matches}</b></div>
+-                     {Array.isArray(testResult.samples) && testResult.samples.length > 0 && (
+-                       <div>
+-                         <div className="font-semibold mt-2">Aperçu :</div>
+-                         <ul className="list-disc ml-4">
+-                           {testResult.samples.map((s, i) => <li key={i}>{s}</li>)}
+-                         </ul>
+-                       </div>
+-                     )}
+-                   </div>
+-                 )}
+-               </div>
+-               <DialogFooter>
+-                 <Button type="button" variant="outline" onClick={closeTestModal}>Fermer</Button>
+-               </DialogFooter>
+-             </DialogContent>
+-           </Dialog>
+-           {/* Dialog for editing transformations */}
+-           <Dialog open={showTransformDialog} onOpenChange={setShowTransformDialog}>
+-             <DialogContent>
+-               <DialogHeader>
+-                 <DialogTitle>Éditer les transformations pour {editingField}</DialogTitle>
+-               </DialogHeader>
+-               <div className="space-y-2">
+-                 <label className="block text-xs font-medium">Type de transformation</label>
+-                 <Select value={String(editingTransform.type || '')} onValueChange={v => setEditingTransform(t => ({ ...t, type: v }))}>
+-                   <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
+-                   <SelectContent>
+-                     <SelectItem value="trimWhitespace">Supprimer les espaces</SelectItem>
+-                     <SelectItem value="regexReplace">Remplacer par regex</SelectItem>
+-                     <SelectItem value="removeText">Supprimer un texte</SelectItem>
+-                     <SelectItem value="prependText">Ajouter au début</SelectItem>
+-                     <SelectItem value="appendText">Ajouter à la fin</SelectItem>
+-                     <SelectItem value="capitalize">Mettre en majuscule</SelectItem>
+-                     <SelectItem value="lowercase">Minuscule</SelectItem>
+-                     <SelectItem value="uppercase">Majuscule</SelectItem>
+-                     <SelectItem value="extractNumber">Extraire nombre</SelectItem>
+-                     <SelectItem value="formatDate">Formater date</SelectItem>
+-                   </SelectContent>
+-                 </Select>
+-                 {/* Additional fields for transformation params */}
+-                 {editingTransform.type === 'regexReplace' && (
+-                   <div className="space-y-1">
+-                     <Input placeholder="Pattern regex" value={String(editingTransform.pattern || '')} onChange={e => setEditingTransform(t => ({ ...t, pattern: e.target.value }))} />
+-                     <Input placeholder="Remplacement" value={String(editingTransform.replacement || '')} onChange={e => setEditingTransform(t => ({ ...t, replacement: e.target.value }))} />
+-                   </div>
+-                 )}
+-                 {editingTransform.type === 'removeText' && (
+-                   <Input placeholder="Texte à supprimer" value={String(editingTransform.textToRemove || '')} onChange={e => setEditingTransform(t => ({ ...t, textToRemove: e.target.value }))} />
+-                 )}
+-                 {editingTransform.type === 'prependText' && (
+-                   <Input placeholder="Texte à ajouter au début" value={String(editingTransform.textToPrepend || '')} onChange={e => setEditingTransform(t => ({ ...t, textToPrepend: e.target.value }))} />
+-                 )}
+-                 {editingTransform.type === 'appendText' && (
+-                   <Input placeholder="Texte à ajouter à la fin" value={String(editingTransform.textToAppend || '')} onChange={e => setEditingTransform(t => ({ ...t, textToAppend: e.target.value }))} />
+-                 )}
+-                 {editingTransform.type === 'formatDate' && (
+-                   <Input placeholder="Format (ISO, short, long)" value={String(editingTransform.format || '')} onChange={e => setEditingTransform(t => ({ ...t, format: e.target.value }))} />
+-                 )}
+-               </div>
+-               <DialogFooter>
+-                 <Button type="button" variant="outline" onClick={() => setShowTransformDialog(false)}>Annuler</Button>
+-                 <Button type="button" onClick={() => {
+-                   if (editingField) {
+-                     setTransformationsState(prev => {
+-                       const filtered = prev.filter(t => t.field !== editingField);
+-                       return [...filtered, { ...editingTransform, field: editingField, type: String(editingTransform.type || '') }];
+-                     });
+-                     setShowTransformDialog(false);
+-                   }
+-                 }}>Enregistrer</Button>
+-                 <Button type="button" variant="destructive" onClick={() => {
+-                   if (editingField) {
+-                     setTransformationsState(prev => prev.filter(t => t.field !== editingField));
+-                     setShowTransformDialog(false);
+-                   }
+-                 }}>Supprimer</Button>
+-               </DialogFooter>
+-             </DialogContent>
+-           </Dialog>
+-           <div className="space-y-2 mt-6">
+-             <label className="text-sm font-medium">Historique des exécutions</label>
+-             {jobHistoryLoading ? (
+-               <div className="text-xs text-muted-foreground">Chargement de l'historique...</div>
+-             ) : jobHistory.length === 0 ? (
+-               <div className="text-xs text-muted-foreground">Aucun historique trouvé pour ce scraper.</div>
+-             ) : (
+-               <div className="overflow-x-auto">
+-                 <table className="min-w-full text-xs border">
+-                   <thead>
+-                     <tr className="bg-gray-100">
+-                       <th className="p-2 border">Job ID</th>
+-                       <th className="p-2 border">Statut</th>
+-                       <th className="p-2 border">Pages</th>
+-                       <th className="p-2 border">Items</th>
+-                       <th className="p-2 border">Erreur</th>
+-                       <th className="p-2 border">Début</th>
+-                       <th className="p-2 border">Fin</th>
+-                     </tr>
+-                   </thead>
+-                   <tbody>
+-                     {jobHistory.map(job => (
+-                       <tr key={job.id}>
+-                         <td className="p-2 border font-mono">{job.job_id}</td>
+-                         <td className="p-2 border">{job.status}</td>
+-                         <td className="p-2 border">{job.total_pages}</td>
+-                         <td className="p-2 border">{job.total_items}</td>
+-                         <td className="p-2 border text-red-500">{job.error_message || '-'}</td>
+-                         <td className="p-2 border">{job.started_at ? new Date(job.started_at).toLocaleString() : '-'}</td>
+-                         <td className="p-2 border">{job.completed_at ? new Date(job.completed_at).toLocaleString() : '-'}</td>
+-                       </tr>
+-                     ))}
+-                   </tbody>
+-                 </table>
+-               </div>
+-             )}
+-           </div>
+          </Card>
+        )}
+```
 
 ---
 
-
+Here’s what’s been done according to your requests:
 
 ---
+
+### 1. **Automatic Pagination Stop (No User-Defined maxPages)**
+- The **maxPages** input has been removed from the scraper creation/edit form in the UI.
+- The user now only configures the pagination selector(s) and, if relevant, the waitAfterClick for "load more" type.
+- **Backend note:** The backend should now rely on the presence/state of the "Next" button (or equivalent) to stop pagination, and should implement an internal emergency failsafe (e.g., 500 or 1000 pages) to prevent infinite loops.
+
+---
+
+### 2. **Form/Card Design Improvements**
+- The "Créer un nouveau scraper" form card is now visually improved:
+  - It is centered, larger, and has a modern shadowed look.
+  - Section headers are clearer and the card is visually separated from the rest of the page.
+- **Expandable Sections:**
+  - **Sélecteurs enfants** and **Règles de transformation des champs** are now collapsible/expandable using an accordion UI.
+  - This keeps the form clean and focused, only showing advanced options when needed.
+- The main card now only shows:
+  - Nom du scraper
+  - URL de la source
+  - Sélecteurs principaux
+  - Pagination (only selector and waitAfterClick if relevant)
+  - Moteur de scraping
+  - Fréquence
+  - Pays/continent
+
+---
+
+**Next steps for full backend support:**
+- Ensure the backend Playwright/Puppeteer scraper logic:
+  - Continues to the next page as long as the "Next" button is present and enabled.
+  - Stops when the button is missing or disabled.
+  - Has an internal hard limit (e.g., 500 pages) to prevent infinite loops.
+
+If you want the backend logic updated or want to see the exact backend code for this, let me know! The UI is now ready for this improved, user-friendly pagination approach.
+
+---
+
+_**User**_
+
+Great, now I want: 
+1.  The frequency to also be expandable and to be on  "Manuel uniquement" by defaut if the user has not selected anything.  
+2. Now Can you check what happens if the user just provids "selecteur principaux" and does not "Selecteur enfants" ? I would like in this case the (phone
++ Ajouter un sélecteur
+email
++ Ajouter un sélecteur
+website
++ Ajouter un sélecteur
+address
++ Ajouter un sélecteur
+sector) to be collected from the "selecteur pricipaux)  I think we talked about Heuristic and regex.... Please help with fixing that if not yet. Thank you! 
+
+---
+
+_**Assistant**_
+
+```diff
+                  </div>
+                </div>
+-           {/*     <div className="space-y-2">
+-                 <label htmlFor="engine" className="text-sm font-medium">Moteur de scraping</label>
+-                 <Select
+-                   value={formData.engine}
+-                   onValueChange={(value: 'playwright' | 'puppeteer') => handleInputChange('engine', value)}
+-                 >
+-                   <SelectTrigger>
+-                     <SelectValue placeholder="Sélectionnez un moteur" />
+-                   </SelectTrigger>
+-                   <SelectContent>
+-                     <SelectItem value="playwright">Playwright (recommandé)</SelectItem>
+-                      <SelectItem value="puppeteer">Puppeteer</SelectItem> 
+-                   </SelectContent>
+-                 </Select>
+-               </div> */}
+                <div className="space-y-2">
+                  <label htmlFor="frequency" className="text-sm font-medium">Fréquence</label>
+                  <Select 
+-                   value={formData.frequency} 
++                   value={formData.frequency || 'manual'}
+                    onValueChange={(value: 'daily' | 'weekly' | 'monthly' | 'manual') => handleInputChange('frequency', value)}
+                  >
+```
+
+```diff
+                    </SelectTrigger>
+                    <SelectContent>
+-                  {/*    <SelectItem value="daily">Quotidien</SelectItem>
+-                     <SelectItem value="weekly">Hebdomadaire</SelectItem> */}
+                      <SelectItem value="manual">Manuel uniquement</SelectItem>
++                     <SelectItem value="daily">Quotidien</SelectItem>
++                     <SelectItem value="weekly">Hebdomadaire</SelectItem>
+                      <SelectItem value="monthly">Mensuel</SelectItem>
+                    </SelectContent>
+```
+
+```diff
+                    </AccordionContent>
+                  </AccordionItem>
++                 <AccordionItem value="frequency">
++                   <AccordionTrigger className="text-base font-semibold px-4 py-2">Fréquence</AccordionTrigger>
++                   <AccordionContent className="p-4 border-t bg-gray-50">
++                     <Select
++                       value={formData.frequency || 'manual'}
++                       onValueChange={(value: 'daily' | 'weekly' | 'monthly' | 'manual') => handleInputChange('frequency', value)}
++                     >
++                       <SelectTrigger>
++                         <SelectValue placeholder="Sélectionnez une fréquence" />
++                       </SelectTrigger>
++                       <SelectContent>
++                         <SelectItem value="manual">Manuel uniquement</SelectItem>
++                         <SelectItem value="daily">Quotidien</SelectItem>
++                         <SelectItem value="weekly">Hebdomadaire</SelectItem>
++                         <SelectItem value="monthly">Mensuel</SelectItem>
++                       </SelectContent>
++                     </Select>
++                   </AccordionContent>
++                 </AccordionItem>
+                </Accordion>
+              </CardContent>
+```
+
+---
+
+<details>
+            <summary>Searched codebase "heuristic|regex|auto child selector|auto child field|auto-detect child selector|auto extract child selector|main selector fallback" • **0** results</summary>
+        
+No results found
+</details>
+
+---
+
+<details>
+            <summary>Searched codebase "extract phone|extract email|extract website|extract address|extract sector|main selector|child selector|heuristic" • **25** results</summary>
+        
+| File | Lines |
+|------|-------|
+| `backend/src/scrapers/genericScraper.js` | L293-326 |
+| `backend/src/scrapers/puppeteerScraper.js` | L146-189 |
+| `backend/src/scrapers/playwrightScraper.js` | L324-362 |
+| `backend/src/scrapers/playwrightScraper.js` | L291-324 |
+| `backend/src/scrapers/playwrightScraper.js` | L1-35 |
+| `backend/src/scrapers/genericScraper.js` | L241-293 |
+| `backend/src/scrapers/playwrightScraper.js` | L362-388 |
+| `backend/src/scrapers/newsPortalScraper.js` | L72-126 |
+| `backend/src/scrapers/newsPortalScraper.js` | L27-72 |
+| `backend/src/scrapers/playwrightScraper.js` | L388-440 |
+| `backend/src/scrapers/newsPortalScraper.js` | L126-178 |
+| `backend/src/scrapers/playwrightScraper.js` | L53-73 |
+| `backend/src/scrapers/puppeteerScraper.js` | L1-36 |
+| `backend/src/scrapers/playwrightScraper.js` | L241-291 |
+| `backend/src/scrapers/playwrightScraper.js` | L35-53 |
+| `backend/src/scrapers/puppeteerScraper.js` | L189-231 |
+| `backend/src/scrapers/puppeteerScraper.js` | L36-72 |
+| `backend/src/scrapers/puppeteerScraper.js` | L104-125 |
+| `backend/src/scrapers/puppeteerScraper.js` | L125-146 |
+| `backend/src/scrapers/newsPortalScraper.js` | L1-27 |
+| `backend/src/scrapers/playwrightScraper.js` | L630-644 |
+| `backend/src/scrapers/playwrightScraper.js` | L440-488 |
+| `backend/src/scrapers/genericScraper.js` | L27-64 |
+| `backend/src/scrapers/genericScraper.js` | L74-122 |
+| `backend/src/scrapers/playwrightScraper.js` | L107-150 |
+
+</details>
+
+---
+
+Read file: backend/src/scrapers/playwrightScraper.js
+
+---
+
+Read file: backend/src/scrapers/playwrightScraper.js
+
+---
+
+Read file: backend/src/scrapers/playwrightScraper.js
+
+---
+
+Read file: backend/src/scrapers/playwrightScraper.js
+
+---
+
+Here’s what you asked for, with a clear summary and next steps:
+
+---
+
+### 1. **Frequency Section:**
+- The frequency selection is now in an expandable/collapsible section (Accordion).
+- The default value is set to "Manuel uniquement" if the user has not selected anything.
+
+---
+
+### 2. **If Only “Sélecteurs principaux” Are Provided (No “Sélecteurs enfants”):**
+
+#### **Current Backend Behavior:**
+- The backend Playwright scraper (`playwrightScraper.js`) and generic scraper both have logic to extract fields like phone, email, website, address, and sector using **heuristics and regex** from the main selector’s content.
+- If no child selectors are provided, the backend will still attempt to extract these fields from the main selector’s text using regex patterns (see the `fieldPatterns` and `detectFieldType` logic).
+- This means: **If the user does not provide child selectors, the system will still try to extract phone, email, website, address, and sector from the main selector’s content.**
+
+#### **Frontend:**
+- The UI allows the user to leave “Sélecteurs enfants” empty.
+- The backend will still attempt to extract the fields heuristically.
+
+#### **What Happens:**
+- If the user only provides “Sélecteurs principaux,” the backend will still try to extract phone, email, website, address, and sector using regex/heuristics from the main selector’s content.
+- If the user provides explicit child selectors, those will be used for extraction.
+
+---
+
+### **No Further Action Needed**
+- The backend already supports the fallback/heuristic extraction you described.
+- The frontend is compatible with this approach.
+
+---
+
+**If you want to further improve the frontend to visually indicate this fallback behavior to the user (e.g., a tooltip or info message when no child selectors are set), let me know! Otherwise, your system already works as you described.**
+
+---
+
+_**User**_
+
+1. But the the "Tester" button in front of "Sélecteurs principaux" at "src\components\dashboard\ScrapersPage.tsx:1450:20" no longer works. I do nt see the modal.
+2. since the pagination is also optional I would like to to be moved to the expandable to.  
+
+---
+
+_**Assistant**_
 
 
 

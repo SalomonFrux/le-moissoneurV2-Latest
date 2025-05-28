@@ -31,13 +31,14 @@ import { scraperStatusService } from '@/services/scraperStatusService';
 import { ScraperStatus } from '@/components/scraper/types';
 import { ScraperProgress } from '@/components/scraper/ScraperProgress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 
 const continents = [
   'Africa', 'Europe', 'USA', 'Asia', 'Australia'
 ];
 const countries = [
   ...continents,
-  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia", "Cameroon", "Canada", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo, Democratic Republic of the", "Congo, Republic of the", "Costa Rica", "Cote d'Ivoire", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Korea, North", "Korea, South", "Kosovo", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Macedonia", "Norway", "Oman", "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
+  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia", "Cameroon", "Canada", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo, Democratic Republic of the", "Congo, Republic of the", "Costa Rica", "Cote d'Ivoire", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Korea, North", "Korea, South", "Kosovo", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Macedonia", "Norway", "Oman", "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
 ];
 
 interface ScraperConfig {
@@ -1388,138 +1389,23 @@ export function ScrapersPage() {
       </Tabs>
 
       {showForm && (
-        <Card ref={formRef}>
+        <Card ref={formRef} className="max-w-3xl mx-auto shadow-xl border border-gray-200 rounded-lg mt-8 animate-slideDown">
           <form onSubmit={handleSubmit}>
-            <CardHeader>
-              <CardTitle>Créer un nouveau scraper</CardTitle>
-              <CardDescription>
-                Configurez un nouveau scraper pour collecter des données d'une source en ligne.
-              </CardDescription>
+            <CardHeader className="bg-gradient-to-r from-[#f8fafc] to-[#e0e7ef] rounded-t-lg border-b border-gray-100">
+              <CardTitle className="text-2xl  mb-1">Créer un nouveau scraper</CardTitle>
+              <CardDescription className="text-muted-foreground">Configurez un nouveau scraper pour collecter des données d'une source en ligne.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <CardContent className="space-y-6 p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label htmlFor="name" className="text-sm font-medium">Nom du scraper</label>
-                  <Input 
-                    id="name" 
-                    placeholder="Ex: FADEV Scraper" 
-                    value={formData.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
-                    required
-                  />
+                  <Input id="name" placeholder="Ex: FADEV Scraper" value={formData.name} onChange={(e) => handleInputChange('name', e.target.value)} required />
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="source" className="text-sm font-medium">URL de la source</label>
-                  <Input 
-                    id="source" 
-                    placeholder="Ex: https://fadev.org" 
-                    value={formData.source}
-                    onChange={(e) => handleInputChange('source', e.target.value)}
-                    required
-                  />
+                  <Input id="source" placeholder="Ex: https://fadev.org" value={formData.source} onChange={(e) => handleInputChange('source', e.target.value)} required />
                 </div>
               </div>
-
-              {/* <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="twoPhaseScraping"
-                    checked={formData.twoPhaseScraping === 'true'}
-                    onChange={(e) => handleInputChange('twoPhaseScraping', e.target.checked ? 'true' : 'false')}
-                    className="rounded border-gray-300"
-                  />
-                  <label htmlFor="twoPhaseScraping" className="text-sm font-medium">
-                    Scraping en deux phases (pour les données dans des dropdowns)
-                  </label>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Activez cette option si les données sont cachées derrière des dropdowns
-                </p>
-              </div> */}
-
-              {/* Phase 1 Selectors */}
-              {formData.twoPhaseScraping === 'true' && (
-                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Phase 1 - Liste des entreprises</h3>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label htmlFor="phase1.name">Sélecteur du nom</label>
-                      <Input
-                        id="phase1.name"
-                        value={formData.phase1Selectors.name}
-                        onChange={(e) => handleInputChange('phase1.name', e.target.value)}
-                        placeholder="Exemple: .company-name"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="phase1.dropdownTrigger">Sélecteur du déclencheur</label>
-                      <Input
-                        id="phase1.dropdownTrigger"
-                        value={formData.phase1Selectors.dropdownTrigger}
-                        onChange={(e) => handleInputChange('phase1.dropdownTrigger', e.target.value)}
-                        placeholder="Exemple: .dropdown-trigger"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Phase 2 Selectors */}
-              {formData.twoPhaseScraping === 'true' && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Phase 2 - Détails de l'entreprise</h3>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label htmlFor="phase2.name">Sélecteur du nom</label>
-                      <Input
-                        id="phase2.name"
-                        value={formData.phase2Selectors.name}
-                        onChange={(e) => handleInputChange('phase2.name', e.target.value)}
-                        placeholder="Exemple: .company-name"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="phase2.phone">Sélecteur du téléphone</label>
-                      <Input
-                        id="phase2.phone"
-                        value={formData.phase2Selectors.phone}
-                        onChange={(e) => handleInputChange('phase2.phone', e.target.value)}
-                        placeholder="Exemple: .phone-number"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="phase2.email">Sélecteur de l'email</label>
-                      <Input
-                        id="phase2.email"
-                        value={formData.phase2Selectors.email}
-                        onChange={(e) => handleInputChange('phase2.email', e.target.value)}
-                        placeholder="Exemple: .email-address"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="phase2.website">Sélecteur du site web</label>
-                      <Input
-                        id="phase2.website"
-                        value={formData.phase2Selectors.website}
-                        onChange={(e) => handleInputChange('phase2.website', e.target.value)}
-                        placeholder="Exemple: .website-url"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="phase2.address">Sélecteur de l'adresse</label>
-                      <Input
-                        id="phase2.address"
-                        value={formData.phase2Selectors.address}
-                        onChange={(e) => handleInputChange('phase2.address', e.target.value)}
-                        placeholder="Exemple: .address-text"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Main Selectors (dynamic array UI) */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Sélecteurs principaux</label>
                 {formData.mainSelectors.map((selector, idx) => (
@@ -1572,196 +1458,180 @@ export function ScrapersPage() {
                   </div>
                 ))}
               </div>
-
-              {/* Pagination */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Pagination</label>
-                <div className="flex gap-2 items-center">
-                  <Select
-                    value={formData.paginationConfig.type}
-                    onValueChange={v => handleInputChange('paginationConfig.type', v)}
-                  >
-                    <SelectTrigger className="w-[160px]">
-                      <SelectValue placeholder="Type de pagination" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="nextButton">Bouton Suivant</SelectItem>
-                      <SelectItem value="numberLinks">Liens Numérotés</SelectItem>
-                      <SelectItem value="loadMore">Bouton "Charger plus"</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="number"
-                    className="w-24"
-                    min={1}
-                    max={1000}
-                    value={formData.paginationConfig.maxPages}
-                    onChange={e => handleInputChange('paginationConfig.maxPages', Number(e.target.value))}
-                    placeholder="Pages max"
-                  />
-                  {formData.paginationConfig.type === 'loadMore' && (
-                    <Input
-                      type="number"
-                      className="w-32"
-                      min={0}
-                      value={formData.paginationConfig.waitAfterClick || 1000}
-                      onChange={e => handleInputChange('paginationConfig.waitAfterClick', Number(e.target.value))}
-                      placeholder="Attente après clic (ms)"
-                    />
-                  )}
-                </div>
-                <div className="space-y-1 mt-2">
-                  <label className="text-xs font-medium">Sélecteurs de pagination</label>
-                  {formData.paginationConfig.selectors.map((selector, idx) => (
-                    <div key={idx} className="flex gap-2 items-center mb-1">
-                      <Select
-                        value={selector.type as SelectorType}
-                        onValueChange={v => {
-                          const updated = [...formData.paginationConfig.selectors];
-                          updated[idx] = { ...updated[idx], type: v as SelectorType };
-                          setFormData(prev => ({
-                            ...prev,
-                            paginationConfig: { ...prev.paginationConfig, selectors: updated }
-                          }));
-                        }}
-                      >
-                        <SelectTrigger className="w-[90px]">
-                          <SelectValue placeholder="Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="css">CSS</SelectItem>
-                          <SelectItem value="xpath">XPath</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        className="flex-1"
-                        placeholder="Valeur du sélecteur"
-                        value={selector.value}
-                        onChange={e => {
-                          const updated = [...formData.paginationConfig.selectors];
-                          updated[idx] = { ...updated[idx], value: e.target.value };
-                          setFormData(prev => ({
-                            ...prev,
-                            paginationConfig: { ...prev.paginationConfig, selectors: updated }
-                          }));
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setFormData(prev => ({
-                            ...prev,
-                            paginationConfig: {
-                              ...prev.paginationConfig,
-                              selectors: prev.paginationConfig.selectors.filter((_, i) => i !== idx)
-                            }
-                          }));
-                        }}
-                        disabled={formData.paginationConfig.selectors.length === 1}
-                      >
-                        -
-                      </Button>
-                      {idx === formData.paginationConfig.selectors.length - 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setFormData(prev => ({
-                              ...prev,
-                              paginationConfig: {
-                                ...prev.paginationConfig,
-                                selectors: [...prev.paginationConfig.selectors, { type: 'css', value: '' }]
-                              }
-                            }));
-                          }}
+              <Accordion type="single" collapsible className="mt-4 border rounded-lg bg-white">
+                <AccordionItem value="pagination">
+                  <AccordionTrigger className="text-base font-semibold px-4 py-2">Pagination</AccordionTrigger>
+                  <AccordionContent className="p-4 border-t bg-gray-50">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Pagination</label>
+                      <div className="flex gap-2 items-center">
+                        <Select
+                          value={formData.paginationConfig.type}
+                          onValueChange={v => handleInputChange('paginationConfig.type', v)}
                         >
-                          +
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Child Selectors (dynamic array UI) */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Sélecteurs enfants</label>
-                <div className="grid grid-cols-2 gap-4">
-                  {Object.entries(formData.childSelectors).map(([childField, selectors]) => (
-                    <div key={childField} className="space-y-1">
-                      <div className="font-semibold text-xs mb-1 capitalize">{childField}</div>
-                      {selectors.length === 0 && (
-                        <Button type="button" variant="ghost" size="sm" onClick={() => addChildSelector(childField)}>
-                          + Ajouter un sélecteur
-                        </Button>
-                      )}
-                      {selectors.map((selector, idx) => (
-                        <div key={idx} className="flex gap-2 items-center mb-1">
-                          <Select
-                            value={selector.type}
-                            onValueChange={value => updateChildSelector(childField, idx, 'type', value)}
-                          >
-                            <SelectTrigger className="w-[90px]">
-                              <SelectValue placeholder="Type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="css">CSS</SelectItem>
-                              <SelectItem value="xpath">XPath</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <SelectTrigger className="w-[160px]">
+                            <SelectValue placeholder="Type de pagination" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="nextButton">Bouton Suivant</SelectItem>
+                            <SelectItem value="numberLinks">Liens Numérotés</SelectItem>
+                            <SelectItem value="loadMore">Bouton \"Charger plus\"</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {formData.paginationConfig.type === 'loadMore' && (
                           <Input
-                            className="flex-1"
-                            placeholder="Valeur du sélecteur"
-                            value={selector.value}
-                            onChange={e => updateChildSelector(childField, idx, 'value', e.target.value)}
+                            type="number"
+                            className="w-32"
+                            min={0}
+                            value={formData.paginationConfig.waitAfterClick || 1000}
+                            onChange={e => handleInputChange('paginationConfig.waitAfterClick', Number(e.target.value))}
+                            placeholder="Attente après clic (ms)"
                           />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeChildSelector(childField, idx)}
-                          >
-                            -
-                          </Button>
-                          {idx === selectors.length - 1 && (
+                        )}
+                      </div>
+                      <div className="space-y-1 mt-2">
+                        <label className="text-xs font-medium">Sélecteurs de pagination</label>
+                        {formData.paginationConfig.selectors.map((selector, idx) => (
+                          <div key={idx} className="flex gap-2 items-center mb-1">
+                            <Select
+                              value={selector.type as SelectorType}
+                              onValueChange={v => {
+                                const updated = [...formData.paginationConfig.selectors];
+                                updated[idx] = { ...updated[idx], type: v as SelectorType };
+                                setFormData(prev => ({
+                                  ...prev,
+                                  paginationConfig: { ...prev.paginationConfig, selectors: updated }
+                                }));
+                              }}
+                            >
+                              <SelectTrigger className="w-[90px]">
+                                <SelectValue placeholder="Type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="css">CSS</SelectItem>
+                                <SelectItem value="xpath">XPath</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              className="flex-1"
+                              placeholder="Valeur du sélecteur"
+                              value={selector.value}
+                              onChange={e => {
+                                const updated = [...formData.paginationConfig.selectors];
+                                updated[idx] = { ...updated[idx], value: e.target.value };
+                                setFormData(prev => ({
+                                  ...prev,
+                                  paginationConfig: { ...prev.paginationConfig, selectors: updated }
+                                }));
+                              }}
+                            />
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
-                              onClick={() => addChildSelector(childField)}
+                              onClick={() => {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  paginationConfig: {
+                                    ...prev.paginationConfig,
+                                    selectors: prev.paginationConfig.selectors.filter((_, i) => i !== idx)
+                                  }
+                                }));
+                              }}
+                              disabled={formData.paginationConfig.selectors.length === 1}
                             >
-                              +
+                              -
                             </Button>
-                          )}
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openTestModal(`childSelectors.${childField}`, idx, selector.type, selector.value)}
-                          >
-                            Tester
-                          </Button>
-                        </div>
-                      ))}
+                            {idx === formData.paginationConfig.selectors.length - 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    paginationConfig: {
+                                      ...prev.paginationConfig,
+                                      selectors: [...prev.paginationConfig.selectors, { type: 'css', value: '' }]
+                                    }
+                                  }));
+                                }}
+                              >
+                                +
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Règles de transformation des champs</label>
-                <table className="min-w-full text-xs border">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="p-2 border">Champ</th>
-                      <th className="p-2 border">Transformations</th>
-                      <th className="p-2 border">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="child-selectors">
+                  <AccordionTrigger className="text-base font-semibold px-4 py-2">Sélecteurs enfants</AccordionTrigger>
+                  <AccordionContent className="p-4 border-t bg-gray-50">
+                    {Object.entries(formData.childSelectors).map(([childField, selectors]) => (
+                      <div key={childField} className="space-y-1">
+                        <div className="font-semibold text-xs mb-1 capitalize">{childField}</div>
+                        {selectors.length === 0 && (
+                          <Button type="button" variant="ghost" size="sm" onClick={() => addChildSelector(childField)}>
+                            + Ajouter un sélecteur
+                          </Button>
+                        )}
+                        {selectors.map((selector, idx) => (
+                          <div key={idx} className="flex gap-2 items-center mb-1">
+                            <Select
+                              value={selector.type}
+                              onValueChange={value => updateChildSelector(childField, idx, 'type', value)}
+                            >
+                              <SelectTrigger className="w-[90px]">
+                                <SelectValue placeholder="Type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="css">CSS</SelectItem>
+                                <SelectItem value="xpath">XPath</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              className="flex-1"
+                              placeholder="Valeur du sélecteur"
+                              value={selector.value}
+                              onChange={e => updateChildSelector(childField, idx, 'value', e.target.value)}
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeChildSelector(childField, idx)}
+                            >
+                              -
+                            </Button>
+                            {idx === selectors.length - 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => addChildSelector(childField)}
+                              >
+                                +
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openTestModal(`childSelectors.${childField}`, idx, selector.type, selector.value)}
+                            >
+                              Tester
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="transform-rules">
+                  <AccordionTrigger className="text-base font-semibold px-4 py-2">Règles de transformation des champs</AccordionTrigger>
+                  <AccordionContent className="p-4 border-t bg-gray-50">
                     {Object.keys(formData.childSelectors).map(field => (
                       <tr key={field}>
                         <td className="p-2 border font-semibold flex items-center gap-2">
@@ -1796,219 +1666,37 @@ export function ScrapersPage() {
                         </td>
                       </tr>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="engine" className="text-sm font-medium">Moteur de scraping</label>
-                <Select
-                  value={formData.engine}
-                  onValueChange={(value: 'playwright' | 'puppeteer') => handleInputChange('engine', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez un moteur" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="playwright">Playwright (recommandé)</SelectItem>
-                    {/* <SelectItem value="puppeteer">Puppeteer</SelectItem> */}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="frequency" className="text-sm font-medium">Fréquence</label>
-                <Select 
-                  value={formData.frequency} 
-                  onValueChange={(value: 'daily' | 'weekly' | 'monthly' | 'manual') => handleInputChange('frequency', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez une fréquence" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Quotidien</SelectItem>
-                    <SelectItem value="weekly">Hebdomadaire</SelectItem>
-                    <SelectItem value="monthly">Mensuel</SelectItem>
-                    <SelectItem value="manual">Manuel uniquement</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="country" className="text-sm font-medium">Pays</label>
-                <Select
-                  value={formData.country || ''}
-                  onValueChange={(value) => handleInputChange('country', value)}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez un pays ou un continent" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-64 overflow-y-auto">
-                    {countries.map((country) => (
-                      <SelectItem key={country} value={country}>{country}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="frequency">
+                  <AccordionTrigger className="text-base font-semibold px-4 py-2">Fréquence</AccordionTrigger>
+                  <AccordionContent className="p-4 border-t bg-gray-50">
+                    <Select
+                      value={formData.frequency || 'manual'}
+                      onValueChange={(value: 'daily' | 'weekly' | 'monthly' | 'manual') => handleInputChange('frequency', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionnez une fréquence" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="manual">Manuel uniquement</SelectItem>
+                        <SelectItem value="daily">Quotidien</SelectItem>
+                        <SelectItem value="weekly">Hebdomadaire</SelectItem>
+                        <SelectItem value="monthly">Mensuel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={handleCancel}
-              >
-                Annuler
-              </Button>
-              <Button 
-                type="submit" 
-                className="bg-africa-green-500 hover:bg-africa-green-600"
-                disabled={loading}
-              >
+            <CardFooter className="flex justify-between p-6 border-t bg-gradient-to-r from-[#f8fafc] to-[#e0e7ef] rounded-b-lg">
+              <Button type="button" variant="outline" onClick={handleCancel}>Annuler</Button>
+              <Button type="submit" className="bg-africa-green-500 hover:bg-africa-green-600" disabled={loading}>
                 <Save className="mr-2 h-4 w-4" />
                 {loading ? 'Enregistrement...' : 'Enregistrer'}
               </Button>
             </CardFooter>
           </form>
-          {/* Selector Test Modal */}
-          <Dialog open={testModal.open} onOpenChange={open => !open && closeTestModal()}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Tester le sélecteur</DialogTitle>
-                <DialogDescription>
-                  Type: <b>{testModal.selectorType}</b> <br />
-                  Valeur: <b>{testModal.selectorValue}</b>
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-2">
-                <Input
-                  placeholder="URL de la page à tester"
-                  value={testInput}
-                  onChange={e => setTestInput(e.target.value)}
-                />
-                <Button type="button" onClick={handleTestSelector} disabled={testLoading || !testInput}>
-                  {testLoading ? 'Test en cours...' : 'Lancer le test'}
-                </Button>
-                {testError && <div className="text-red-500 text-xs">{testError}</div>}
-                {testResult && typeof testResult === 'object' && 'matches' in testResult && (
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    <div>Éléments trouvés : <b>{testResult.matches}</b></div>
-                    {Array.isArray(testResult.samples) && testResult.samples.length > 0 && (
-                      <div>
-                        <div className="font-semibold mt-2">Aperçu :</div>
-                        <ul className="list-disc ml-4">
-                          {testResult.samples.map((s, i) => <li key={i}>{s}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={closeTestModal}>Fermer</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          {/* Dialog for editing transformations */}
-          <Dialog open={showTransformDialog} onOpenChange={setShowTransformDialog}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Éditer les transformations pour {editingField}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-2">
-                <label className="block text-xs font-medium">Type de transformation</label>
-                <Select value={String(editingTransform.type || '')} onValueChange={v => setEditingTransform(t => ({ ...t, type: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="trimWhitespace">Supprimer les espaces</SelectItem>
-                    <SelectItem value="regexReplace">Remplacer par regex</SelectItem>
-                    <SelectItem value="removeText">Supprimer un texte</SelectItem>
-                    <SelectItem value="prependText">Ajouter au début</SelectItem>
-                    <SelectItem value="appendText">Ajouter à la fin</SelectItem>
-                    <SelectItem value="capitalize">Mettre en majuscule</SelectItem>
-                    <SelectItem value="lowercase">Minuscule</SelectItem>
-                    <SelectItem value="uppercase">Majuscule</SelectItem>
-                    <SelectItem value="extractNumber">Extraire nombre</SelectItem>
-                    <SelectItem value="formatDate">Formater date</SelectItem>
-                  </SelectContent>
-                </Select>
-                {/* Additional fields for transformation params */}
-                {editingTransform.type === 'regexReplace' && (
-                  <div className="space-y-1">
-                    <Input placeholder="Pattern regex" value={String(editingTransform.pattern || '')} onChange={e => setEditingTransform(t => ({ ...t, pattern: e.target.value }))} />
-                    <Input placeholder="Remplacement" value={String(editingTransform.replacement || '')} onChange={e => setEditingTransform(t => ({ ...t, replacement: e.target.value }))} />
-                  </div>
-                )}
-                {editingTransform.type === 'removeText' && (
-                  <Input placeholder="Texte à supprimer" value={String(editingTransform.textToRemove || '')} onChange={e => setEditingTransform(t => ({ ...t, textToRemove: e.target.value }))} />
-                )}
-                {editingTransform.type === 'prependText' && (
-                  <Input placeholder="Texte à ajouter au début" value={String(editingTransform.textToPrepend || '')} onChange={e => setEditingTransform(t => ({ ...t, textToPrepend: e.target.value }))} />
-                )}
-                {editingTransform.type === 'appendText' && (
-                  <Input placeholder="Texte à ajouter à la fin" value={String(editingTransform.textToAppend || '')} onChange={e => setEditingTransform(t => ({ ...t, textToAppend: e.target.value }))} />
-                )}
-                {editingTransform.type === 'formatDate' && (
-                  <Input placeholder="Format (ISO, short, long)" value={String(editingTransform.format || '')} onChange={e => setEditingTransform(t => ({ ...t, format: e.target.value }))} />
-                )}
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setShowTransformDialog(false)}>Annuler</Button>
-                <Button type="button" onClick={() => {
-                  if (editingField) {
-                    setTransformationsState(prev => {
-                      const filtered = prev.filter(t => t.field !== editingField);
-                      return [...filtered, { ...editingTransform, field: editingField, type: String(editingTransform.type || '') }];
-                    });
-                    setShowTransformDialog(false);
-                  }
-                }}>Enregistrer</Button>
-                <Button type="button" variant="destructive" onClick={() => {
-                  if (editingField) {
-                    setTransformationsState(prev => prev.filter(t => t.field !== editingField));
-                    setShowTransformDialog(false);
-                  }
-                }}>Supprimer</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          <div className="space-y-2 mt-6">
-            <label className="text-sm font-medium">Historique des exécutions</label>
-            {jobHistoryLoading ? (
-              <div className="text-xs text-muted-foreground">Chargement de l'historique...</div>
-            ) : jobHistory.length === 0 ? (
-              <div className="text-xs text-muted-foreground">Aucun historique trouvé pour ce scraper.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-xs border">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="p-2 border">Job ID</th>
-                      <th className="p-2 border">Statut</th>
-                      <th className="p-2 border">Pages</th>
-                      <th className="p-2 border">Items</th>
-                      <th className="p-2 border">Erreur</th>
-                      <th className="p-2 border">Début</th>
-                      <th className="p-2 border">Fin</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {jobHistory.map(job => (
-                      <tr key={job.id}>
-                        <td className="p-2 border font-mono">{job.job_id}</td>
-                        <td className="p-2 border">{job.status}</td>
-                        <td className="p-2 border">{job.total_pages}</td>
-                        <td className="p-2 border">{job.total_items}</td>
-                        <td className="p-2 border text-red-500">{job.error_message || '-'}</td>
-                        <td className="p-2 border">{job.started_at ? new Date(job.started_at).toLocaleString() : '-'}</td>
-                        <td className="p-2 border">{job.completed_at ? new Date(job.completed_at).toLocaleString() : '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
         </Card>
       )}
     </div>

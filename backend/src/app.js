@@ -8,7 +8,7 @@ const performanceMonitor = require('./middleware/performanceMonitor');
 const sessionTimeout = require('./middleware/sessionTimeout');
 const backupService = require('./services/backupService');
 const { verifyToken } = require('./controllers/authController');
-const ErrorHandler = require('./middleware/errorHandler');
+const errorHandlerMiddleware = require('./middleware/errorHandler');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -75,6 +75,6 @@ app.use('/api/statistics', verifyToken, statisticsRoutes);
 app.use('/api/selector-test', verifyToken, selectorTestRoutes);
 
 // Error handling middleware - must be last
-app.use(ErrorHandler.handle);
+app.use(errorHandlerMiddleware);
 
 module.exports = app;

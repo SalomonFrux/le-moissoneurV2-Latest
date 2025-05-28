@@ -86,7 +86,8 @@ export async function deleteConfig(configId: string) {
 }
 
 export async function testSelector(url: string, selector: { type: string; value: string }) {
-  const response = await axios.post(`${API_URL}/api/scrapers/test-selector`, { url, selector });
+ // const response = await axios.post(`${API_URL}/api/scrapers/test-selector`, { url, selector });
+ const response = await axios.post(`${API_URL}/api/selector-test/test-selector`, { url, selector });
   return response.data;
 }
 
