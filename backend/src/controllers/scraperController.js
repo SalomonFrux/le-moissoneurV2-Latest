@@ -508,28 +508,22 @@ async function deleteScraper(req, res, next) {
       return res.status(404).json({ error: 'Scraper not found' });
     }
 
-    // Delete associated scraped data first
-    const { error: dataDeleteError } = await supabase
-      .from('scraped_data')
-      .delete()
-      .eq('scraper_id', id);
+    // Call the database function to delete the scraper and its dependencies
+    const { error: rpcError } = await supabase.rpc(
+      'delete_scraper_and_dependencies', 
+      { scraper_id_to_delete: id } // Pass the scraper ID as an argument
+    );
 
-    if (dataDeleteError) {
-      logger.error(`Error deleting scraped data for scraper ${id}: ${dataDeleteError.message}`);
-      return res.status(500).json({ error: 'Error deleting scraped data' });
+    if (rpcError) {
+      logger.error(`Error calling delete_scraper_and_dependencies for scraper ${id}: ${rpcError.message}`);
+      // You might want to check rpcError.details or rpcError.hint for more specific DB errors
+      return res.status(500).json({ 
+        error: 'Error deleting scraper and its dependencies', 
+        details: rpcError.message 
+      });
     }
 
-    // Delete the scraper
-    const { error: scraperDeleteError } = await supabase
-      .from('scrapers')
-      .delete()
-      .eq('id', id);
-
-    if (scraperDeleteError) {
-      logger.error(`Error deleting scraper ${id}: ${scraperDeleteError.message}`);
-      return res.status(500).json({ error: 'Error deleting scraper' });
-    }
-
+    // If rpcError is null, the function executed successfully
     return res.status(200).json({ message: 'Scraper deleted successfully' });
   } catch (err) {
     logger.error(`Error in deleteScraper: ${err.message}`);

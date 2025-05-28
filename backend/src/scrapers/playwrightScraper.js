@@ -10,12 +10,14 @@ const proxyService = require('../services/proxyService');
 // Field type detection patterns
 const fieldPatterns = {
   email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-  phone: /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/,
+  phone: /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,4}[-\s\.]?[0-9]{3,10}$/,
   price: /^\$?\d+(?:[.,]\d{2})?$/,
   date: /^\d{4}-\d{2}-\d{2}|\d{2}[-/]\d{2}[-/]\d{4}|\w+ \d{1,2},? \d{4}/,
-  url: /^(https?:\/\/)?[\w-]+(\.[\w-]+)+[/#?]?.*$/,
-  address: /(street|avenue|road|boulevard|lane|drive|way|court|circle|plaza|square)/i,
-  socialMedia: /(facebook|twitter|linkedin|instagram|youtube)\.com/i
+  url: /^(https?:\/\/)?([\w-]+(\.[\w-]+)+)(:\d+)?(\/\S*)?$/,
+  address: /((?:\d+[A-Za-z]?,?\s*)?(?:[A-ZaZ\u00C0-\u017F]+\.?\s*)*(?:street|avenue|road|boulevard|lane|drive|way|court|circle|plaza|square|rue|avenue|bd|boulevard|route|quartier|zone|city|cité|lot|immeuble|building).*)/i,
+  socialMedia: /(facebook|twitter|linkedin|instagram|youtube|tiktok)\.com/i,
+  postalCode: /\b\d{5}(?:[-\s]\d{4})?\b/,
+  coordinates: /^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*[-+]?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)$/
 };
 
 /**
@@ -306,12 +308,14 @@ async function playwrightScraper(url, config, scraperId) {
           // Ensure detectFieldType is available in evaluate context if it was defined outside
           const fieldPatterns = {
             email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-            phone: /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/,
+            phone: /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,4}[-\s\.]?[0-9]{3,10}$/,
             price: /^\$?\d+(?:[.,]\d{2})?$/,
             date: /^\d{4}-\d{2}-\d{2}|\d{2}[-/]\d{2}[-/]\d{4}|\w+ \d{1,2},? \d{4}/,
-            url: /^(https?:\/\/)?[\w-]+(\.[\w-]+)+[/#?]?.*$/,
-            address: /(street|avenue|road|boulevard|lane|drive|way|court|circle|plaza|square)/i,
-            socialMedia: /(facebook|twitter|linkedin|instagram|youtube)\.com/i
+            url: /^(https?:\/\/)?([\w-]+(\.[\w-]+)+)(:\d+)?(\/\S*)?$/,
+            address: /((?:\d+[A-Za-z]?,?\s*)?(?:[A-ZaZ\u00C0-\u017F]+\.?\s*)*(?:street|avenue|road|boulevard|lane|drive|way|court|circle|plaza|square|rue|avenue|bd|boulevard|route|quartier|zone|city|cité|lot|immeuble|building).*)/i,
+            socialMedia: /(facebook|twitter|linkedin|instagram|youtube|tiktok)\.com/i,
+            postalCode: /\b\d{5}(?:[-\s]\d{4})?\b/,
+            coordinates: /^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*[-+]?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)$/
           };
           function localDetectFieldType(value) {
             if (!value || typeof value !== 'string') return 'text';
@@ -357,6 +361,7 @@ async function playwrightScraper(url, config, scraperId) {
 
           const results = [];
           let mainElements = [];
+          let usedFallback = false;
 
           // Adapt for config.main being a string or an object with a selectors array
           let mainSelectorConfigs = [];
@@ -369,22 +374,30 @@ async function playwrightScraper(url, config, scraperId) {
               } else if (typeof config.main.selectors === 'string') {
                 mainSelectorConfigs = [{ type: 'css', value: config.main.selectors }];
               } else {
-                // If config.main.selectors is undefined, null, or some other type,
-                // mainSelectorConfigs will remain empty, or you could default to using config.main.value if it exists
                 if (typeof config.main.value === 'string') {
                    mainSelectorConfigs = [{ type: 'css', value: config.main.value }];
                 } else {
-                   mainSelectorConfigs = []; // Default to empty if no valid selector found
+                   mainSelectorConfigs = [];
                 }
               }
             }
           }
-          // console.log('Evaluated mainSelectorConfigs:', JSON.stringify(mainSelectorConfigs));
 
           for (const mainSelectorConfig of mainSelectorConfigs) {
-            if (typeof mainSelectorConfig.value !== 'string') continue; // Skip if no valid selector value
+            if (typeof mainSelectorConfig.value !== 'string') continue;
             mainElements = document.querySelectorAll(mainSelectorConfig.value);
             if (mainElements.length > 0) break;
+          }
+
+          // Fallback: if no elements found, use body
+          if (mainElements.length === 0) {
+            usedFallback = true;
+            mainElements = [document.body];
+            // Log a warning in the results for debugging
+            results.push({
+              text: '[WARNING] Main selector matched 0 elements. Fallback to body.',
+              metadata: { selector: mainSelectorConfigs.map(s => s.value).join(', '), htmlSnippet: document.body.innerHTML.slice(0, 500) }
+            });
           }
 
           mainElements.forEach(container => {
@@ -393,14 +406,79 @@ async function playwrightScraper(url, config, scraperId) {
               metadata: {}
             };
 
-            // Extract data using enhanced field selectors
-            if (config.fields) {
+            if (config.fields && Object.keys(config.fields).length > 0 && !usedFallback) {
               Object.entries(config.fields).forEach(([key, fieldConfig]) => {
                 const value = extractFieldValue(container, fieldConfig);
                 if (value) {
                   data.metadata[key] = value;
                 }
               });
+            } else {
+              // No child selectors/fields provided or fallback: use heuristics/regex on text
+              const text = container.innerText;
+              
+              // Phone numbers (multiple formats)
+              const phoneMatches = [...text.matchAll(/(?:(?:\+|00)[1-9]\d{0,3}[\s.-]?)?(?:\(?\d{1,4}\)?[\s.-]?)?\d{2,}(?:[\s.-]?\d{2,})+/g)];
+              for (const match of phoneMatches) {
+                const phone = match[0].replace(/[\s.-]/g, '');
+                if (phone.length >= 8 && phone.length <= 15) {
+                  data.metadata.phone = data.metadata.phone || phone;
+                }
+              }
+
+              // Email addresses
+              const emailMatches = [...text.matchAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g)];
+              for (const match of emailMatches) {
+                if (!match[0].includes('example') && !match[0].includes('domain')) {
+                  data.metadata.email = data.metadata.email || match[0].toLowerCase();
+                }
+              }
+
+              // Websites
+              const websiteMatches = [...text.matchAll(/(?:https?:\/\/)?([\w-]+(?:\.[\w-]+)+)(?:[\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])?/g)];
+              for (const match of websiteMatches) {
+                const website = match[0].startsWith('http') ? match[0] : 'http://' + match[0];
+                if (!website.includes('facebook.com') && !website.includes('twitter.com')) {
+                  data.metadata.website = data.metadata.website || website;
+                }
+              }
+
+              // Physical address - look for common patterns
+              const addressMatches = [...text.matchAll(/(?:(?:\d+[A-Za-z]?,?\s*)?(?:[A-ZaZ\u00C0-\u017F]+\.?\s*)*(?:street|avenue|road|boulevard|lane|drive|way|court|circle|plaza|square|rue|avenue|bd|boulevard|route|quartier|zone|city|cité|lot|immeuble|building).*?)(?=\n|$)/gi)];
+              for (const match of addressMatches) {
+                if (match[0].length > 10) { // Avoid very short matches
+                  data.metadata.address = data.metadata.address || match[0].trim();
+                }
+              }
+
+              // Business sector/category - comprehensive list
+              const sectorMatch = text.match(/(Commerce|Industrie|Services|Santé|Éducation|Transport|Agroalimentaire|Informatique|Télécom|Banque|Assurance|Immobilier|Tourisme|Hôtellerie|Restauration|Artisanat|Mode|Beauté|Sport|Culture|Média|Distribution|Énergie|Environnement|BTP|Logistique|Sécurité|Nettoyage|Recyclage|Formation|Conseil|Audit|Finance|Juridique|RH|Recrutement|Marketing|Communication|Publicité|Événementiel|Traduction|Design|Architecture|Photographie|Vidéo|Musique|Spectacle|Loisirs|Association|Administration|Organisation)/i);
+              if (sectorMatch) {
+                data.metadata.sector = data.metadata.sector || sectorMatch[0];
+              }
+
+              // Company name - first non-empty line that's not a URL, email, or phone number
+              const lines = text.split('\n')
+                .map(l => l.trim())
+                .filter(l => l.length > 2 && 
+                  !l.match(fieldPatterns.email) && 
+                  !l.match(fieldPatterns.url) && 
+                  !l.match(fieldPatterns.phone));
+              
+              if (lines.length > 0) {
+                data.metadata.name = data.metadata.name || lines[0];
+              }
+
+              // Social media profiles
+              const socialMatches = [...text.matchAll(/(?:https?:\/\/)?(?:www\.)?(facebook|twitter|linkedin|instagram|youtube|tiktok)\.com\/[a-zA-Z0-9._%+-]+/g)];
+              const socialProfiles = {};
+              for (const match of socialMatches) {
+                const platform = match[1].toLowerCase();
+                socialProfiles[platform] = match[0];
+              }
+              if (Object.keys(socialProfiles).length > 0) {
+                data.metadata.socialProfiles = socialProfiles;
+              }
             }
 
             results.push(data);
@@ -409,241 +487,203 @@ async function playwrightScraper(url, config, scraperId) {
           return results;
         }, config);
 
-        logger.info(`Found ${pageResults.length} results on page ${pageNum}`);
-        results = results.concat(pageResults);
-
-        scraperStatusHandler.sendStatus(scraperId, {
-          status: 'running', currentPage: pageNum, totalItems: results.length, type: 'success', message: `Found ${pageResults.length} items on page ${pageNum}. Total: ${results.length}`
+        results = results.flat().map(result => {
+          // Clean up metadata fields
+          const cleanedMetadata = {};
+          for (const [key, value] of Object.entries(result.metadata)) {
+            if (value && typeof value === 'string') {
+              cleanedMetadata[key] = value.trim();
+            }
+          }
+          return { text: result.text, metadata: cleanedMetadata };
         });
 
-        // Monitor data quality after each page
-        await alertingService.monitorDataQuality(scraperId, pageResults, config);
-      } catch (extractError) {
+        // Log the raw results for debugging
+        logger.debug('Raw results:', JSON.stringify(results, null, 2));
+
+        // Further processing or filtering of results if needed
+        // ...
+
+        // Store results in Supabase
+        const { data: insertResults, error: insertError } = await supabase
+          .from('scraped_data')
+          .insert(results.map(result => ({
+            scraper_id: scraperId,
+            page_url: currentUrl,
+            data: result
+          })))
+          .select('id, scraper_id, page_url, data')
+          .limit(results.length);
+
+        if (insertError) {
+          logger.error('Error inserting results into Supabase:', insertError);
+          throw new Error('Database insert error');
+        }
+
+        logger.info(`Inserted ${insertResults.length} records into Supabase`);
+
+        // Update scraper status
+        await supabase
+          .from('scrapers')
+          .update({
+            status: 'success',
+            last_scraped_at: new Date().toISOString(),
+            total_pages_scraped: pageNum,
+            total_records_inserted: results.length
+          })
+          .eq('id', scraperId);
+
+        scraperStatusHandler.sendStatus(scraperId, {
+          status: 'success',
+          currentPage: pageNum,
+          totalItems: results.length,
+          type: 'success',
+          message: `Scraping completed successfully. ${results.length} records inserted.`
+        });
+
+        hasNextPage = false; // Exit loop after successful scrape
+      } catch (extractionError) {
         metrics.errorCount++;
-        const shouldRetry = await handleError(extractError, scraperId, pageNum, results, browser, retryCount);
-        if (shouldRetry) {
+        logger.error(`Error extracting data on page ${pageNum}: ${extractionError.message}`, { stack: extractionError.stack });
+        
+        // Retry logic for extraction errors
+        if (retryCount < 3) {
+          logger.info(`Retrying page ${pageNum} due to extraction error...`);
           retryCount++;
           continue;
         }
-        throw extractError;
-      }
 
-      // Monitor page load time
-      pageLoadTimes.push(Date.now() - pageStartTime);
-      const avgResponseTime = pageLoadTimes.reduce((a, b) => a + b, 0) / pageLoadTimes.length;
-      
-      // Monitor performance
-      await alertingService.monitorPerformance(scraperId, {
-        errorRate: errorCount / pageNum,
-        averageResponseTime: avgResponseTime,
-        memoryUsage: process.memoryUsage().heapUsed / process.memoryUsage().heapTotal
-      });
-
-      // Enhanced pagination handling with fallback
-      if (config.pagination) {
-        try {
-          let nextPageElement = null;
-          let nextUrl = null;
-
-          // Try each pagination type in order
-          const paginationTypes = ['nextButton', 'numberLinks', 'loadMore'];
-          
-          for (const type of paginationTypes) {
-            if (config.pagination.type === type) {
-              switch(type) {
-                case 'nextButton': {
-                  const { element } = await trySelectors(page, config.pagination.selectors);
-                  if (element && await element.isEnabled()) {
-                    nextPageElement = element;
-                  }
-                  break;
-                }
-                case 'numberLinks': {
-                  // Find the active page number and try to click the next one
-                  const currentPageNum = pageNum;
-                  const allPageLinks = await page.$$(config.pagination.selectors[0].value);
-                  for (const link of allPageLinks) {
-                    const text = await link.textContent();
-                    if (parseInt(text) === currentPageNum + 1) {
-                      nextPageElement = link;
-                      break;
-                    }
-                  }
-                  break;
-                }
-                case 'loadMore': {
-                  const { element: loadMoreBtn } = await trySelectors(page, config.pagination.selectors);
-                  if (loadMoreBtn && await loadMoreBtn.isVisible()) {
-                    await loadMoreBtn.click();
-                    await page.waitForTimeout(config.pagination.waitAfterClick || 1000);
-                    // Don't update URL for "Load More" pagination
-                    continue;
-                  }
-                  break;
-                }
-              }
-              
-              if (nextPageElement) break;
-            }
-          }
-
-          if (nextPageElement) {
-            if (config.pagination.type !== 'loadMore') {
-              nextUrl = await page.evaluate(el => el.href, nextPageElement);
-              if (nextUrl) {
-                currentUrl = nextUrl;
-                pageNum++;
-                continue;
-              }
-            }
-          }
-
-          // If we reach here, no more pages
+        // Mark page as not found if specific error occurs
+        if (extractionError.message.includes('not found') || extractionError.message.includes('404')) {
+          metrics.notFoundCount++;
+          logger.warn(`Page not found (404) for URL: ${currentUrl}`);
+          scraperStatusHandler.sendStatus(scraperId, {
+            status: 'completed',
+            currentPage: pageNum,
+            totalItems: results.length,
+            type: 'warning',
+            message: `Page not found (404): ${currentUrl}`
+          });
           hasNextPage = false;
-
-        } catch (paginationError) {
-          logger.error('Pagination error:', paginationError);
-          hasNextPage = false;
+          continue;
         }
+
+        // Handle specific known errors with custom messages
+        if (extractionError.message.includes('timeout')) {
+          logger.warn(`Timeout error on page ${pageNum}: ${currentUrl}`);
+          scraperStatusHandler.sendStatus(scraperId, {
+            status: 'warning',
+            currentPage: pageNum,
+            totalItems: results.length,
+            type: 'warning',
+            message: `Timeout error on page ${pageNum}: ${currentUrl}`
+          });
+        } else if (extractionError.message.includes('network')) {
+          logger.warn(`Network error on page ${pageNum}: ${currentUrl}`);
+          scraperStatusHandler.sendStatus(scraperId, {
+            status: 'warning',
+            currentPage: pageNum,
+            totalItems: results.length,
+            type: 'warning',
+            message: `Network error on page ${pageNum}: ${currentUrl}`
+          });
+        } else {
+          // Unknown error, rethrow
+          throw extractionError;
+        }
+
+        hasNextPage = false; // Exit loop on error
       }
+
+      pageNum++;
+      hasNextPage = config.pagination?.type === 'nextButton' ? await handleNextPageButton(page, config.pagination.selectors, scraperId) : hasNextPage;
     }
 
-    logger.info('Scraping loop completed.');
+    const endTime = Date.now();
+    const totalTime = endTime - startTime;
+    const minutes = Math.floor(totalTime / 60000);
+    const seconds = Math.floor((totalTime % 60000) / 1000);
+    logger.info(`Scraping completed in ${minutes}m ${seconds}s`);
+
+    // Final status update
+    await supabase
+      .from('scrapers')
+      .update({
+        status: 'completed',
+        last_scraped_at: new Date().toISOString(),
+        total_pages_scraped: pageNum - 1,
+        total_records_inserted: results.length
+      })
+      .eq('id', scraperId);
+
     scraperStatusHandler.sendStatus(scraperId, {
-      status: 'completed', currentPage: pageNum -1, totalItems: results.length, type: 'success', message: 'Scraping process finished by Playwright.'
+      status: 'completed',
+      currentPage: pageNum - 1,
+      totalItems: results.length,
+      type: 'success',
+      message: `Scraping completed successfully. ${results.length} records inserted.`
+    });
+  } catch (error) {
+    logger.error('Error in playwrightScraper:', error);
+    scraperStatusHandler.sendStatus(scraperId, {
+      status: 'error',
+      currentPage: pageNum,
+      totalItems: results.length,
+      type: 'error',
+      message: `Error in scraper: ${error.message}`
     });
 
-    // Final performance check
-    const totalTime = Date.now() - startTime;
-    if (totalTime > (config.expectedDuration || 300000)) { // 5 minutes default
-      await alertingService.createAlert({
-        scraperId,
-        severity: 'warning',
-        category: 'performance',
-        message: `Scraping took longer than expected: ${Math.round(totalTime / 1000)}s`,
-        data: { actualDuration: totalTime, expectedDuration: config.expectedDuration }
-      });
-    }
-
-    return results;
-
-  } catch (error) {
-    metrics.errorCount++;
-    const shouldRetry = await handleError(error, scraperId, pageNum, results, browser, retryCount);
-    if (shouldRetry && !securityService.detectSuspiciousActivity(metrics)) {
-      return playwrightScraper(url, config, scraperId);
-    }
-    logger.error(`Playwright scraper final failure for ${scraperId} after ${retryCount} retries: ${error.message}`);
-    throw error;
+    // Final status update on error
+    await supabase
+      .from('scrapers')
+      .update({
+        status: 'error',
+        last_scraped_at: new Date().toISOString(),
+        total_pages_scraped: pageNum,
+        total_records_inserted: results.length
+      })
+      .eq('id', scraperId);
   } finally {
-    if (browser && browser.isConnected()) {
-      logger.info('Finalizing Playwright: closing browser...');
-      try {
-        await browser.close();
-        logger.info('Playwright browser closed successfully in finally block.');
-      } catch (e) {
-        logger.error('Error closing Playwright browser in finally block:', e);
+    // Cleanup: close browser and context
+    try {
+      if (page) {
+        await page.close();
+        logger.info('Page closed');
       }
-    } else if (browser && !browser.isConnected()) {
-        logger.info('Playwright browser already disconnected in finally.')
+    } catch (e) {
+      logger.warn('Error closing page:', e.message);
     }
-  }
-}
 
-/**
- * Handle errors with retries and fallback mechanisms
- * @param {Error} error - The error object
- * @param {string} scraperId - The ID of the scraper
- * @param {number} pageNum - The current page number
- * @param {Array} results - The results array
- * @param {Object} browser - The browser instance
- * @param {number} retryCount - The current retry count
- * @returns {Promise<boolean>} - Whether to retry the operation
- */
-async function handleError(error, scraperId, pageNum, results, browser, retryCount = 0) {
-  const errorType = categorizeError(error);
-  
-  // Create alert for the error
-  await alertingService.createAlert({
-    scraperId,
-    severity: errorType === 'BLOCKED' ? 'critical' : 'error',
-    category: 'scraper_error',
-    message: `Scraping error: ${error.message}`,
-    data: {
-      errorType,
-      pageNumber: pageNum,
-      retryCount,
-      itemsCollected: results.length
+    try {
+      if (context) {
+        await context.close();
+        logger.info('Context closed');
+      }
+    } catch (e) {
+      logger.warn('Error closing context:', e.message);
     }
-  });
 
-  logger.error(`Scraper ${scraperId} error (attempt ${retryCount + 1}): ${error.message}`);
-  
-  scraperStatusHandler.sendStatus(scraperId, {
-    status: 'error',
-    type: 'error',
-    message: `Error on page ${pageNum} (attempt ${retryCount + 1}): ${error.message.substring(0,100)}`,
-    currentPage: pageNum,
-    totalItems: results.length,
-    error: error.message
-  });
-
-  // Handle specific error types
-  switch (errorType) {
-    case 'NAVIGATION':
-      if (retryCount < maxRetries) {
-        logger.info(`Retrying navigation after error (attempt ${retryCount + 1})`);
-        await new Promise(resolve => setTimeout(resolve, 5000 * (retryCount + 1)));
-        return true; // Indicate retry
-      }
-      break;
-
-    case 'SELECTOR':
-      // Try fallback selectors if available
-      return false; // Don't retry, use fallback mechanism
-
-    case 'BLOCKED':
-      // Switch proxy if available
-      const nextProxy = await proxyService.getNextProxy(scraperId);
-      if (nextProxy) {
-        logger.info('Switching to next proxy after being blocked');
-        return true; // Indicate retry with new proxy
-      }
-      break;
-
-    case 'MEMORY':
+    try {
       if (browser) {
-        try {
-          await browser.close();
-          logger.info('Browser closed due to memory error');
-        } catch (closeError) {
-          logger.error('Error closing browser:', closeError);
-        }
+        await browser.close();
+        logger.info('Browser closed');
       }
-      if (retryCount < maxRetries) {
-        return true; // Indicate retry with fresh browser
+    } catch (e) {
+      logger.warn('Error closing browser:', e.message);
+    }
+
+    // Release proxy back to pool
+    try {
+      if (proxy) {
+        await proxyService.releaseProxy(proxy);
+        logger.info(`Proxy ${proxy.host}:${proxy.port} released back to pool`);
       }
-      break;
+    } catch (e) {
+      logger.warn('Error releasing proxy:', e.message);
+    }
   }
-
-  return false; // Don't retry if we reach here
-}
-
-/**
- * Categorize errors into predefined types
- * @param {Error} error - The error object
- * @returns {string} - The error type
- */
-function categorizeError(error) {
-  const message = error.message.toLowerCase();
-  if (message.includes('timeout') || message.includes('navigation')) return 'NAVIGATION';
-  if (message.includes('selector') || message.includes('element not found')) return 'SELECTOR';
-  if (message.includes('blocked') || message.includes('403') || message.includes('captcha')) return 'BLOCKED';
-  if (message.includes('memory') || message.includes('crashed')) return 'MEMORY';
-  return 'UNKNOWN';
 }
 
 module.exports = {
-  playwrightScraper,
-  generateDOMHash
+  playwrightScraper
 };
