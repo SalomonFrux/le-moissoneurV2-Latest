@@ -550,3 +550,8 @@ Call log:
 {"level":"error","message":"Error fetching scraper with ID shared: invalid input syntax for type uuid: \"shared\"","metadata":{"metadata":{}},"timestamp":"2025-05-28 15:51:15:5115"}
 {"level":"error","message":"Error fetching scraper with ID configs: invalid input syntax for type uuid: \"configs\"","metadata":{"metadata":{}},"timestamp":"2025-05-28 15:51:28:5128"}
 {"level":"error","message":"Error fetching scraper with ID shared: invalid input syntax for type uuid: \"shared\"","metadata":{"metadata":{}},"timestamp":"2025-05-28 15:51:51:5151"}
+{"level":"error","message":"Error fetching scraper with ID alerts: invalid input syntax for type uuid: \"alerts\"","metadata":{"metadata":{}},"timestamp":"2025-05-28 17:11:25:1125"}
+{"level":"error","message":"Error creating scraper: Could not find the 'version' column of 'scrapers' in the schema cache","metadata":{"metadata":{}},"timestamp":"2025-05-28 17:25:00:250"}
+{"level":"error","message":"Error creating scraper: Could not find the 'version' column of 'scrapers' in the schema cache","metadata":{"metadata":{}},"timestamp":"2025-05-28 17:31:10:3110"}
+{"level":"error","message":"Failed to insert scraping_jobs record: undefined","metadata":{"metadata":{}},"timestamp":"2025-05-28 18:52:52:5252"}
+{"level":"error","message":"Error getting next proxy for scraper 66f5dee9-9098-41bb-a856-4f1eae0b5944: column scrapers.config does not exist","metadata":{"metadata":{"code":"42703","details":null,"hint":null}},"timestamp":"2025-05-28 18:52:53:5253"}
